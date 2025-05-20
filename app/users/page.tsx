@@ -1,0 +1,181 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { PlusCircle, Search, MoreVertical, Edit, Trash2 } from "lucide-react"
+import { getUsers, deleteUserById } from "@/lib/actions"
+import type { User } from "@/lib/types"
+
+export default function UsersPage() {
+  const router = useRouter()
+  const [users, setUsers] = useState<User[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const fetchedUsers = await getUsers()
+        setUsers(fetchedUsers)
+      } catch (error) {
+        console.error("Failed to fetch users:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
+
+  const handleDeleteUser = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        await deleteUserById(id)
+        setUsers(users.filter((user) => user.id !== id))
+      } catch (error) {
+        console.error("Failed to delete user:", error)
+      }
+    }
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* user header star */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground mt-1">Manage system users and permissions</p>
+        </div>
+        <Link href="/users/create" className="mt-4 md:mt-0">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create User
+          </Button>
+        </Link>
+      </div>
+      {/* user header end */}
+      {/* search box start */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      {/* search box end */}
+      {/* users render page start */}
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 rounded-full bg-gray-200"></div>
+                    <div className="space-y-2">
+                      <div className="h-5 bg-gray-200 rounded w-32"></div>
+                      <div className="h-4 bg-gray-200 rounded w-48"></div>
+                    </div>
+                  </div>
+                  <div className="h-9 w-9 bg-gray-200 rounded-md"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filteredUsers.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredUsers.map((user) => (
+            <Card key={user.id} className="hover:shadow-sm transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Avatar>
+                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium">{user.name}</div>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="flex items-center mt-1 space-x-2">
+                        <Badge variant={user.role === "Admin" ? "default" : "outline"}>{user.role}</Badge>
+                        <Badge variant={user.status === "active" ? "success" : "destructive"}>
+                          {user.status === "active" ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/users/${user.id}/edit`)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteUser(user.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        // user not found start
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium">No users found</h3>
+          <p className="text-muted-foreground mt-1">
+            {searchQuery ? "Try adjusting your search query" : "Create your first user to get started"}
+          </p>
+          {!searchQuery && (
+            <Link href="/users/create" className="mt-4 inline-block">
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create User
+              </Button>
+            </Link>
+          )}
+        </div>
+        // user not found end
+      )}
+      {/* users render page end */}
+    </div>
+    
+  )
+}
