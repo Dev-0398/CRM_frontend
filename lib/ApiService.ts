@@ -10,12 +10,18 @@ export default class ApiService {
         },
       });
 
-      if (!response.ok) throw new Error(`GET failed: ${response.status}`);
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const result = await response.json();
+
+      if (result.status === "error") {
+        alert(result.msg || "Failed to fetch data");
+        console.error("GET Error:", result);
+        return null;
+      }
+
+      return result.response;
+    } catch (error: any) {
       alert("Error fetching data: " + error.message);
-      console.error("GET Error:", error);
+      console.error("GET Exception:", error);
       return null;
     }
   }
@@ -30,13 +36,19 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error(`POST failed: ${response.status}`);
-      const data = await response.json();
-      alert("Data successfully created!");
-      return data;
-    } catch (error) {
+      const result = await response.json();
+
+      if (result.status === "error") {
+        alert(result.msg || "Failed to create data");
+        console.error("POST Error:", result);
+        return null;
+      }
+
+      alert(result.msg || "Data successfully created!");
+      return result.response;
+    } catch (error: any) {
       alert("Error creating data: " + error.message);
-      console.error("POST Error:", error);
+      console.error("POST Exception:", error);
       return null;
     }
   }
@@ -51,13 +63,19 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error(`PATCH failed: ${response.status}`);
-      const data = await response.json();
-      alert("Data successfully updated!");
-      return data;
-    } catch (error) {
+      const result = await response.json();
+
+      if (result.status === "error") {
+        alert(result.msg || "Failed to update data");
+        console.error("PATCH Error:", result);
+        return null;
+      }
+
+      alert(result.msg || "Data successfully updated!");
+      return result.response;
+    } catch (error: any) {
       alert("Error updating data: " + error.message);
-      console.error("PATCH Error:", error);
+      console.error("PATCH Exception:", error);
       return null;
     }
   }
@@ -71,12 +89,19 @@ export default class ApiService {
         },
       });
 
-      if (!response.ok) throw new Error(`DELETE failed: ${response.status}`);
-      alert("Data successfully deleted!");
+      const result = await response.json();
+
+      if (result.status === "error") {
+        alert(result.msg || "Failed to delete data");
+        console.error("DELETE Error:", result);
+        return false;
+      }
+
+      alert(result.msg || "Data successfully deleted!");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       alert("Error deleting data: " + error.message);
-      console.error("DELETE Error:", error);
+      console.error("DELETE Exception:", error);
       return false;
     }
   }

@@ -6,7 +6,7 @@ import ApiService from "@/lib/ApiService";
 // Mock database for leads
 let leads: Lead[] = [
   {
-    id: "1",
+    id: "9",
     lead_owner: "John Smith",
     first_name: "Michael",
     last_name: "Johnson",
@@ -20,7 +20,7 @@ let leads: Lead[] = [
     state: "CA",
     zipcode: "94105",
     country: "USA",
-    descr: "Michael showed interest in our enterprise solution during the webinar.",
+    descri: "Michael showed interest in our enterprise solution during the webinar.",
   },
   {
     id: "2",
@@ -37,7 +37,7 @@ let leads: Lead[] = [
     state: "NY",
     zipcode: "10001",
     country: "USA",
-    descr: "Emily was referred by our partner agency. She's looking for a CRM solution for her marketing team.",
+    descri: "Emily was referred by our partner agency. She's looking for a CRM solution for her marketing team.",
   },
   {
     id: "3",
@@ -54,7 +54,7 @@ let leads: Lead[] = [
     state: "IL",
     zipcode: "60601",
     country: "USA",
-    descr: "Robert called to inquire about our premium plan. His company is expanding and needs a robust CRM system.",
+    descri: "Robert called to inquire about our premium plan. His company is expanding and needs a robust CRM system.",
   },
 ]
 
@@ -89,27 +89,56 @@ let users: User[] = [
   },
 ]
 
-// Lead actions
+/**
+ * Fetches all leads from the API and stores them in local memory.
+ *
+ * @returns {Promise<Lead[]>} A promise that resolves to the list of leads.
+ */
 export async function getLeads(): Promise<Lead[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-  return leads
+  try {
+    const response = await ApiService.get("/leads/");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    if (Array.isArray(response)) {
+      leads = [...response];
+    } else {
+      console.warn("Failed to load leads:", response?.msg || "Unknown error");
+    }
+
+    return leads;
+  } catch (error) {
+    console.error("Error in getLeads:", error);
+    return leads;
+  }
 }
 
+/**
+ * Fetches a lead by its ID from the API.
+ *
+ * @param {string} id - The ID of the lead to retrieve.
+ * @returns {Promise<Lead | null>} A promise that resolves to the lead or null if not found.
+ */
 export async function getLeadById(id: string): Promise<Lead | null> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-  return leads.find((lead) => lead.id === id) || null
+  try {
+    const lead = await ApiService.get(`/leads/${id}`);
+    return lead;
+  } catch (error) {
+    console.error("Error fetching lead:", error);
+    return null;
+  }
 }
 
+/**
+ * Creates a new lead and adds it to the local cache.
+ *
+ * @param {Omit<Lead, "id">} leadData - The data for the new lead, excluding the ID.
+ * @returns {Promise<Lead>} A promise that resolves to the newly created lead.
+ */
 export async function createLead(leadData: Omit<Lead, "id">): Promise<Lead> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  // Ensure all required fields are present
-  const newLead: Lead = {
+  const payload: Omit<Lead, "id"> = {
     ...leadData,
-    id:"",
     lead_owner: leadData.lead_owner || "Unassigned",
     lead_status: leadData.lead_status || "New",
     lead_source: leadData.lead_source || "",
@@ -119,40 +148,57 @@ export async function createLead(leadData: Omit<Lead, "id">): Promise<Lead> {
     zipcode: leadData.zipcode || "",
     country: leadData.country || "",
     descri: leadData.descri || "",
+  };
+
+  const newLeadDB = await ApiService.post("/leads/new", payload);
+
+  if (newLeadDB?.id) {
+    leads = [...leads, newLeadDB];
   }
 
-  leads = [...leads, newLead]
-  await ApiService.post("/leads/new",newLead)
-  return newLead
+  return newLeadDB;
 }
 
+/**
+ * Updates a lead by its ID and updates the local cache.
+ *
+ * @param {string} id - The ID of the lead to update.
+ * @param {Partial<Omit<Lead, "id">>} leadData - The fields to update.
+ * @returns {Promise<Lead | null>} A promise that resolves to the updated lead, or null if not found.
+ */
 export async function updateLead(id: string, leadData: Partial<Omit<Lead, "id">>): Promise<Lead | null> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  await ApiService.patch(`/leads/${id}`, leadData);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  const leadIndex = leads.findIndex((lead) => lead.id === id)
-  if (leadIndex === -1) return null
+  const leadIndex = leads.findIndex((lead) => lead.id === id);
+  if (leadIndex === -1) return null;
 
   const updatedLead = {
     ...leads[leadIndex],
     ...leadData,
-  }
+  };
 
-  leads = [...leads.slice(0, leadIndex), updatedLead, ...leads.slice(leadIndex + 1)]
+  leads = [...leads.slice(0, leadIndex), updatedLead, ...leads.slice(leadIndex + 1)];
 
-  return updatedLead
+  return updatedLead;
 }
 
+/**
+ * Deletes a lead by its ID and updates the local cache.
+ *
+ * @param {string} id - The ID of the lead to delete.
+ * @returns {Promise<boolean>} A promise that resolves to true if deleted, false otherwise.
+ */
 export async function deleteLeadById(id: string): Promise<boolean> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  await ApiService.delete(`/leads/${id}`);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  const leadIndex = leads.findIndex((lead) => lead.id === id)
-  if (leadIndex === -1) return false
+  const leadIndex = leads.findIndex((lead) => lead.id === id);
+  if (leadIndex === -1) return false;
 
-  leads = [...leads.slice(0, leadIndex), ...leads.slice(leadIndex + 1)]
+  leads = [...leads.slice(0, leadIndex), ...leads.slice(leadIndex + 1)];
 
-  return true
+  return true;
 }
 
 // User actions
