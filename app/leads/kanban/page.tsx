@@ -41,9 +41,16 @@ export default function LeadsKanbanPage() {
     try {
       const leadData = JSON.parse(e.dataTransfer.getData("application/json")) as Lead
       if (leadData.lead_status !== status) {
+        // Optimistically update the UI
+        const optimisticLead = { ...leadData, lead_status: status }
+        setLeads(leads.map((lead) => (lead.id === optimisticLead.id ? optimisticLead : lead)))
+
+        // Make the API call in the background
         const updatedLead = await updateLead(leadData.id, { lead_status: status })
-        if (updatedLead) {
-          setLeads(leads.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead)))
+        if (!updatedLead) {
+          // If the API call fails, revert the optimistic update
+          setLeads(leads.map((lead) => (lead.id === leadData.id ? leadData : lead)))
+          throw new Error("Failed to update lead status")
         }
       }
     } catch (error) {

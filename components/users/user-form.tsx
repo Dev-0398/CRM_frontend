@@ -14,15 +14,15 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CheckCircle2, HelpCircle, AlertCircle, Mail, ShieldCheck } from "lucide-react"
-import type { User as UserType } from "@/lib/types"
+import type { User } from "@/lib/types"
 import { createUser, updateUser } from "@/lib/actions"
+import { useToast } from "@/hooks/use-toast"
 
-const initialUserState: Omit<UserType, "id" | "createdAt"> = {
-  name: "",
+const initialUserState: Omit<User, "id" | "created_at"> = {
+  full_name: "",
   email: "",
   role: "User",
-  avatar: "/placeholder.svg?height=40&width=40",
-  status: "active",
+  is_active: true,
 }
 
 const roleOptions = [
@@ -31,16 +31,16 @@ const roleOptions = [
   { value: "User", label: "User", description: "Basic access to leads only" },
 ]
 
-export function UserForm({ user }: { user?: UserType }) {
+export function UserForm({ user }: { user?: User }) {
   const router = useRouter()
-  const [formData, setFormData] = useState<Omit<UserType, "id" | "createdAt">>(
+  const { toast } = useToast()
+  const [formData, setFormData] = useState<Omit<User, "id" | "created_at">>(
     user
       ? {
-          name: user.name,
+          full_name: user.full_name,
           email: user.email,
           role: user.role,
-          avatar: user.avatar,
-          status: user.status,
+          is_active: user.is_active,
         }
       : initialUserState,
   )
@@ -92,15 +92,15 @@ export function UserForm({ user }: { user?: UserType }) {
   }
 
   const handleStatusChange = (checked: boolean) => {
-    setFormData((prev) => ({ ...prev, status: checked ? "active" : "inactive" }))
-    setTouchedFields((prev) => ({ ...prev, status: true }))
+    setFormData((prev) => ({ ...prev, is_active: checked }))
+    setTouchedFields((prev) => ({ ...prev, is_active: true }))
 
     // Check if form is complete
     checkFormCompletion()
   }
 
   const checkFormCompletion = () => {
-    const requiredFields = ["name", "email", "role"]
+    const requiredFields = ["full_name", "email", "role"]
     const isComplete = requiredFields.every((field) => formData[field as keyof typeof formData] && !errors[field])
     setFormComplete(isComplete)
   }
@@ -108,8 +108,8 @@ export function UserForm({ user }: { user?: UserType }) {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required"
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = "Name is required"
     }
 
     if (!formData.email.trim()) {
@@ -131,7 +131,7 @@ export function UserForm({ user }: { user?: UserType }) {
 
     if (!validateForm()) {
       // Mark all fields as touched to show errors
-      const allFields = { name: true, email: true, role: true, status: true }
+      const allFields = { full_name: true, email: true, role: true, is_active: true }
       setTouchedFields(allFields)
       return
     }
@@ -141,14 +141,31 @@ export function UserForm({ user }: { user?: UserType }) {
     try {
       if (user) {
         // Update existing user
-        await updateUser(user.id, formData)
+        const response = await updateUser(user.id, formData)
+        toast({
+          title: "Success",
+          description: response.msg || "User updated successfully",
+          variant: "default",
+        })
+        router.push("/users")
       } else {
         // Create new user
-        await createUser(formData)
+        const response = await createUser(formData)
+        toast({
+          title: "Success",
+          description: response.msg || "User created successfully",
+          variant: "default",
+        })
+        router.push("/users")
       }
-      router.push("/users")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save user:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save user",
+        variant: "destructive",
+      })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -224,18 +241,17 @@ export function UserForm({ user }: { user?: UserType }) {
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center space-x-4 p-4 bg-muted/30 rounded-lg">
             <Avatar className="h-16 w-16 border-2 border-primary/20">
-              <AvatarImage src={formData.avatar || "/placeholder.svg"} alt={formData.name || "User"} />
-              <AvatarFallback>{formData.name ? getInitials(formData.name) : "U"}</AvatarFallback>
+              <AvatarFallback>{formData.full_name ? getInitials(formData.full_name) : "U"}</AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="text-lg font-medium">{formData.name || "New User"}</h3>
+              <h3 className="text-lg font-medium">{formData.full_name || "New User"}</h3>
               <p className="text-sm text-muted-foreground">{formData.email || "Enter user details below"}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             {renderFormField(
-              "name",
+              "full_name",
               "Full Name",
               "Enter full name",
               true,
@@ -303,18 +319,18 @@ export function UserForm({ user }: { user?: UserType }) {
               <div className="flex items-center space-x-2">
                 <Mail className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <Label htmlFor="status" className="text-base">
+                  <Label htmlFor="is_active" className="text-base">
                     User Status
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    {formData.status === "active" ? "User can access the system" : "User access is disabled"}
+                    {formData.is_active ? "User can access the system" : "User access is disabled"}
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="status" checked={formData.status === "active"} onCheckedChange={handleStatusChange} />
-                <Badge variant={formData.status === "active" ? "success" : "destructive"}>
-                  {formData.status === "active" ? "Active" : "Inactive"}
+                <Switch id="is_active" checked={formData.is_active} onCheckedChange={handleStatusChange} />
+                <Badge variant={formData.is_active ? "success" : "destructive"}>
+                  {formData.is_active ? "Active" : "Inactive"}
                 </Badge>
               </div>
             </div>
@@ -328,7 +344,7 @@ export function UserForm({ user }: { user?: UserType }) {
         </Button>
 
         <div className="flex items-center gap-4">
-          {!formComplete && touchedFields.name && (
+          {!formComplete && touchedFields.full_name && (
             <span className="text-amber-600 text-sm flex items-center">
               <AlertCircle className="h-4 w-4 mr-1" />
               Complete required fields

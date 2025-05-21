@@ -9,9 +9,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PlusCircle, Search, List, LayoutGrid } from "lucide-react"
 import { LeadCard } from "@/components/leads/lead-card"
 import type { Lead } from "@/lib/types"
-import { getLeads } from "@/lib/actions"
+import { getLeads, deleteLeadById } from "@/lib/actions"
+import { useToast } from "@/hooks/use-toast"
+import Swal from "sweetalert2"
 
 export default function LeadsPage() {
+  const { toast } = useToast()
   const [leads, setLeads] = useState<Lead[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -21,15 +24,54 @@ export default function LeadsPage() {
       try {
         const fetchedLeads = await getLeads()
         setLeads(fetchedLeads)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch leads:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch leads",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchLeads()
-  }, [])
+  }, [toast])
+
+  const handleDeleteLead = async (id: string) => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to delete this lead?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel"
+    })
+
+    if (result.isConfirmed) {
+      try {
+        const success = await deleteLeadById(id)
+        if (success) {
+          setLeads(leads.filter((lead) => lead.id !== id))
+          toast({
+            title: "Success",
+            description: "Lead deleted successfully",
+            variant: "default",
+          })
+          Swal.fire("Deleted!", "Lead has been deleted.", "success")
+        }
+      } catch (error: any) {
+        console.error("Failed to delete lead:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete lead",
+          variant: "destructive",
+        })
+      }
+    }
+  }
 
   const filteredLeads = leads.filter(
     (lead) =>
@@ -86,24 +128,28 @@ export default function LeadsPage() {
       </Card>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-5 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 rounded-full bg-gray-200"></div>
+                    <div className="space-y-2">
+                      <div className="h-5 bg-gray-200 rounded w-32"></div>
+                      <div className="h-4 bg-gray-200 rounded w-48"></div>
+                    </div>
+                  </div>
+                  <div className="h-9 w-9 bg-gray-200 rounded-md"></div>
+                </div>
               </CardContent>
-              <div className="px-6 py-3 bg-muted/50">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              </div>
             </Card>
           ))}
         </div>
       ) : filteredLeads.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} onDelete={() => handleDeleteLead(lead.id)} />
           ))}
         </div>
       ) : (

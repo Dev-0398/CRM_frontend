@@ -17,11 +17,10 @@ export interface Lead {
 }
 
 export interface User {
-  id: string
-  name: string
+  id: number
+  full_name: string
   email: string
   role: string
-  avatar: string
-  status: "active" | "inactive"
-  createdAt: string
+  is_active: boolean
+  created_at: string
 }

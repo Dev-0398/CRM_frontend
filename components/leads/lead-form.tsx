@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, HelpCircle, AlertCircle } from "lucide-react"
 import type { Lead } from "@/lib/types"
 import { createLead, updateLead } from "@/lib/actions"
+import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const initialLeadState: Omit<Lead, "id"> = {
   lead_owner: "",
@@ -55,6 +57,7 @@ const leadStatuses = [
 
 export function LeadForm({ lead }: { lead?: Lead }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [formData, setFormData] = useState<Omit<Lead, "id">>(lead ? { ...lead } : initialLeadState)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -144,8 +147,35 @@ export function LeadForm({ lead }: { lead?: Lead }) {
     window.scrollTo(0, 0)
   }
 
+  const renderAlert = (type: "warning" | "success" | "error", title: string, description: string) => {
+    const icons = {
+      warning: <AlertCircle className="h-5 w-5" />,
+      success: <CheckCircle2 className="h-5 w-5" />,
+      error: <AlertCircle className="h-5 w-5" />,
+    }
+
+    const variants = {
+      warning: "bg-amber-50 border-amber-200 text-amber-800",
+      success: "bg-green-50 border-green-200 text-green-800",
+      error: "bg-red-50 border-red-200 text-red-800",
+    }
+
+    return (
+      <Alert className={`${variants[type]} mt-4`}>
+        <div className="flex items-start">
+          <div className="flex-shrink-0 mt-0.5">{icons[type]}</div>
+          <div className="ml-3">
+            <AlertTitle className="font-medium">{title}</AlertTitle>
+            <AlertDescription className="mt-1">{description}</AlertDescription>
+          </div>
+        </div>
+      </Alert>
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation() // Prevent event bubbling
 
     if (!validateStep(step)) {
       return
@@ -156,15 +186,31 @@ export function LeadForm({ lead }: { lead?: Lead }) {
     try {
       if (lead) {
         // Update existing lead
-        await updateLead(lead.id, formData)
-        router.push(`/leads/${lead.id}`)
+        const response = await updateLead(lead.id, formData)
+        toast({
+          title: "Success",
+          description: response?.msg || "Lead updated successfully",
+          variant: "default",
+        })
+        router.push("/leads")
       } else {
         // Create new lead
-        const newLead = await createLead(formData)
-        router.push(`/leads/${newLead.id}`)
+        const response = await createLead(formData)
+        toast({
+          title: "Success",
+          description: response?.msg || "Lead created successfully",
+          variant: "default",
+        })
+        router.push("/leads")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save lead:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save lead",
+        variant: "destructive",
+      })
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -206,6 +252,13 @@ export function LeadForm({ lead }: { lead?: Lead }) {
     )
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
   const renderFormField = (
     name: string,
     label: string,
@@ -243,6 +296,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
           type={type}
           value={formData[name as keyof typeof formData] as string}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`transition-all ${isError ? "border-red-500 focus-visible:ring-red-500" : isValid ? "border-green-500 focus-visible:ring-green-500" : ""}`}
         />
@@ -257,7 +311,16 @@ export function LeadForm({ lead }: { lead?: Lead }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+    <form 
+      onSubmit={handleSubmit} 
+      className="max-w-3xl mx-auto"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }}
+    >
       {renderStepIndicator()}
       {renderStepTitle()}
 
@@ -376,10 +439,10 @@ export function LeadForm({ lead }: { lead?: Lead }) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="descr">Description</Label>
+                <Label htmlFor="descri">Description</Label>
                 <Textarea
-                  id="descr"
-                  name="descr"
+                  id="descri"
+                  name="descri"
                   value={formData.descri}
                   onChange={handleChange}
                   placeholder="Add any notes or additional information about this lead"
@@ -398,6 +461,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
                   name="street"
                   value={formData.street}
                   onChange={handleChange}
+                  onKeyDown={handleKeyDown}
                   placeholder="Street address"
                 />
               </div>
@@ -405,12 +469,26 @@ export function LeadForm({ lead }: { lead?: Lead }) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={formData.city} onChange={handleChange} placeholder="City" />
+                  <Input 
+                    id="city" 
+                    name="city" 
+                    value={formData.city} 
+                    onChange={handleChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="City" 
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
-                  <Input id="state" name="state" value={formData.state} onChange={handleChange} placeholder="State" />
+                  <Input 
+                    id="state" 
+                    name="state" 
+                    value={formData.state} 
+                    onChange={handleChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="State" 
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -420,6 +498,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
                     name="zipcode"
                     value={formData.zipcode}
                     onChange={handleChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Zip code"
                   />
                 </div>
@@ -432,6 +511,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
                   name="country"
                   value={formData.country}
                   onChange={handleChange}
+                  onKeyDown={handleKeyDown}
                   placeholder="Country"
                 />
               </div>
@@ -457,7 +537,8 @@ export function LeadForm({ lead }: { lead?: Lead }) {
           </Button>
         ) : (
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={isSubmitting || !formComplete}
             className={`${!formComplete ? "opacity-70 cursor-not-allowed" : ""}`}
           >
@@ -466,18 +547,10 @@ export function LeadForm({ lead }: { lead?: Lead }) {
         )}
       </div>
 
-      {step === 3 && !formComplete && (
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
-          <div className="flex items-start">
-            <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Please complete all required fields</p>
-              <p className="mt-1">
-                Make sure you've filled out all required fields marked with an asterisk (*) before submitting.
-              </p>
-            </div>
-          </div>
-        </div>
+      {step === 3 && !formComplete && renderAlert(
+        "warning",
+        "Please complete all required fields",
+        "Make sure you've filled out all required fields marked with an asterisk (*) before submitting."
       )}
     </form>
   )

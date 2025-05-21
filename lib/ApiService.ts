@@ -10,19 +10,26 @@ export default class ApiService {
         },
       });
 
-      const result = await response.json();
-
-      if (result.status === "error") {
-        alert(result.msg || "Failed to fetch data");
-        console.error("GET Error:", result);
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
+        }
+        if (result.status === "error") {
+          console.error("GET Error:", result);
+          throw new Error(result.msg || "Failed to fetch data");
+        }
+        return result.response;
+      } else {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return null;
       }
-
-      return result.response;
     } catch (error: any) {
-      alert("Error fetching data: " + error.message);
       console.error("GET Exception:", error);
-      return null;
+      throw error;
     }
   }
 
@@ -36,20 +43,26 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
-      const result = await response.json();
-
-      if (result.status === "error") {
-        alert(result.msg || "Failed to create data");
-        console.error("POST Error:", result);
-        return null;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
+        }
+        if (result.status === "error") {
+          console.error("POST Error:", result);
+          throw new Error(result.msg || "Failed to create data");
+        }
+        return result.response;
+      } else {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return { msg: "Data created successfully" };
       }
-
-      alert(result.msg || "Data successfully created!");
-      return result.response;
     } catch (error: any) {
-      alert("Error creating data: " + error.message);
       console.error("POST Exception:", error);
-      return null;
+      throw error;
     }
   }
 
@@ -63,20 +76,26 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
-      const result = await response.json();
-
-      if (result.status === "error") {
-        alert(result.msg || "Failed to update data");
-        console.error("PATCH Error:", result);
-        return null;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
+        }
+        if (result.status === "error") {
+          console.error("PATCH Error:", result);
+          throw new Error(result.msg || "Failed to update data");
+        }
+        return result;
+      } else {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return { msg: "Data updated successfully" };
       }
-
-      alert(result.msg || "Data successfully updated!");
-      return result.response;
     } catch (error: any) {
-      alert("Error updating data: " + error.message);
       console.error("PATCH Exception:", error);
-      return null;
+      throw error;
     }
   }
 
@@ -89,20 +108,26 @@ export default class ApiService {
         },
       });
 
-      const result = await response.json();
-
-      if (result.status === "error") {
-        alert(result.msg || "Failed to delete data");
-        console.error("DELETE Error:", result);
-        return false;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
+        }
+        if (result.status === "error") {
+          console.error("DELETE Error:", result);
+          throw new Error(result.msg || "Failed to delete data");
+        }
+        return true;
+      } else {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return true;
       }
-
-      alert(result.msg || "Data successfully deleted!");
-      return true;
     } catch (error: any) {
-      alert("Error deleting data: " + error.message);
       console.error("DELETE Exception:", error);
-      return false;
+      throw error;
     }
   }
 }

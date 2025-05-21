@@ -6,15 +6,18 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PlusCircle, Search, MoreVertical, Edit, Trash2 } from "lucide-react"
 import { getUsers, deleteUserById } from "@/lib/actions"
 import type { User } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
+import Swal from "sweetalert2"
 
 export default function UsersPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -24,30 +27,58 @@ export default function UsersPage() {
       try {
         const fetchedUsers = await getUsers()
         setUsers(fetchedUsers)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch users:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch users",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchUsers()
-  }, [])
+  }, [toast])
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.role.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const handleDeleteUser = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
+  const handleDeleteUser = async (id: number) => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to delete this user?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel"
+    })
+
+    if (result.isConfirmed) {
       try {
-        await deleteUserById(id)
-        setUsers(users.filter((user) => user.id !== id))
-      } catch (error) {
+        const success = await deleteUserById(id)
+        if (success) {
+          setUsers(users.filter((user) => user.id !== id))
+          toast({
+            title: "Success",
+            description: "User deleted successfully",
+            variant: "default",
+          })
+          Swal.fire("Deleted!", "User has been deleted.", "success")
+        }
+      } catch (error: any) {
         console.error("Failed to delete user:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete user",
+          variant: "destructive",
+        })
       }
     }
   }
@@ -62,7 +93,7 @@ export default function UsersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* user header star */}
+      {/* user header start */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
@@ -118,17 +149,16 @@ export default function UsersPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="font-medium">{user.name}</div>
+                      <div className="font-medium">{user.full_name}</div>
                       <div className="text-sm text-muted-foreground">{user.email}</div>
                       <div className="flex items-center mt-1 space-x-2">
                         <Badge variant={user.role === "Admin" ? "default" : "outline"}>{user.role}</Badge>
-                        <Badge variant={user.status === "active" ? "success" : "destructive"}>
-                          {user.status === "active" ? "Active" : "Inactive"}
+                        <Badge variant={user.is_active ? "success" : "destructive"}>
+                          {user.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </div>
                     </div>
@@ -176,6 +206,5 @@ export default function UsersPage() {
       )}
       {/* users render page end */}
     </div>
-    
   )
 }

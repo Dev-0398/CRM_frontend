@@ -4,90 +4,10 @@ import type { Lead, User } from "./types"
 import ApiService from "@/lib/ApiService";
 
 // Mock database for leads
-let leads: Lead[] = [
-  {
-    id: "9",
-    lead_owner: "John Smith",
-    first_name: "Michael",
-    last_name: "Johnson",
-    title: "CTO",
-    email: "michael.johnson@example.com",
-    mobile: "+1 (555) 123-4567",
-    lead_source: "Website",
-    lead_status: "New",
-    street: "123 Tech Avenue",
-    city: "San Francisco",
-    state: "CA",
-    zipcode: "94105",
-    country: "USA",
-    descri: "Michael showed interest in our enterprise solution during the webinar.",
-  },
-  {
-    id: "2",
-    lead_owner: "Sarah Williams",
-    first_name: "Emily",
-    last_name: "Davis",
-    title: "Marketing Director",
-    email: "emily.davis@example.com",
-    mobile: "+1 (555) 987-6543",
-    lead_source: "Partner Referral",
-    lead_status: "Contacted",
-    street: "456 Marketing Blvd",
-    city: "New York",
-    state: "NY",
-    zipcode: "10001",
-    country: "USA",
-    descri: "Emily was referred by our partner agency. She's looking for a CRM solution for her marketing team.",
-  },
-  {
-    id: "3",
-    lead_owner: "David Wilson",
-    first_name: "Robert",
-    last_name: "Brown",
-    title: "CEO",
-    email: "robert.brown@example.com",
-    mobile: "+1 (555) 456-7890",
-    lead_source: "Phone Inquiry",
-    lead_status: "Qualified",
-    street: "789 Executive Drive",
-    city: "Chicago",
-    state: "IL",
-    zipcode: "60601",
-    country: "USA",
-    descri: "Robert called to inquire about our premium plan. His company is expanding and needs a robust CRM system.",
-  },
-]
+let leads: Lead[] = []
 
 // Mock database for users
-let users: User[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john.smith@example.com",
-    role: "Admin",
-    avatar: "/placeholder.svg?height=40&width=40",
-    status: "active",
-    createdAt: "2023-01-15T00:00:00.000Z",
-  },
-  {
-    id: "2",
-    name: "Sarah Williams",
-    email: "sarah.williams@example.com",
-    role: "Manager",
-    avatar: "/placeholder.svg?height=40&width=40",
-    status: "active",
-    createdAt: "2023-02-20T00:00:00.000Z",
-  },
-  {
-    id: "3",
-    name: "David Wilson",
-    email: "david.wilson@example.com",
-    role: "User",
-    avatar: "/placeholder.svg?height=40&width=40",
-    status: "inactive",
-    createdAt: "2023-03-10T00:00:00.000Z",
-  },
-]
+let users: User[] = []
 
 /**
  * Fetches all leads from the API and stores them in local memory.
@@ -166,21 +86,14 @@ export async function createLead(leadData: Omit<Lead, "id">): Promise<Lead> {
  * @param {Partial<Omit<Lead, "id">>} leadData - The fields to update.
  * @returns {Promise<Lead | null>} A promise that resolves to the updated lead, or null if not found.
  */
-export async function updateLead(id: string, leadData: Partial<Omit<Lead, "id">>): Promise<Lead | null> {
-  await ApiService.patch(`/leads/${id}`, leadData);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  const leadIndex = leads.findIndex((lead) => lead.id === id);
-  if (leadIndex === -1) return null;
-
-  const updatedLead = {
-    ...leads[leadIndex],
-    ...leadData,
-  };
-
-  leads = [...leads.slice(0, leadIndex), updatedLead, ...leads.slice(leadIndex + 1)];
-
-  return updatedLead;
+export async function updateLead(id: number, data: Partial<Lead>): Promise<{ msg: string }> {
+  try {
+    const response = await ApiService.patch(`/leads/${id}`, data);
+    return { msg: response.msg || "Lead updated successfully" };
+  } catch (error: any) {
+    console.error("Error updating lead:", error);
+    throw new Error(error.message || "Failed to update lead");
+  }
 }
 
 /**
@@ -203,56 +116,51 @@ export async function deleteLeadById(id: string): Promise<boolean> {
 
 // User actions
 export async function getUsers(): Promise<User[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-  return users
-}
-
-export async function getUserById(id: string): Promise<User | null> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-  return users.find((user) => user.id === id) || null
-}
-
-export async function createUser(userData: Omit<User, "id" | "createdAt">): Promise<User> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  const newUser: User = {
-    ...userData,
-    id: String(Date.now()),
-    createdAt: new Date().toISOString(),
+  try {
+    const response = await ApiService.get("/users/");
+    return response || [];
+  } catch (error) {
+    console.error("Error in getUsers:", error);
+    return [];
   }
-
-  users = [...users, newUser]
-  return newUser
 }
 
-export async function updateUser(id: string, userData: Partial<Omit<User, "id" | "createdAt">>): Promise<User | null> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  const userIndex = users.findIndex((user) => user.id === id)
-  if (userIndex === -1) return null
-
-  const updatedUser = {
-    ...users[userIndex],
-    ...userData,
+export async function getUserById(id: number): Promise<User | null> {
+  try {
+    const response = await ApiService.get(`/users/${id}`);
+    return response || null;
+  } catch (error) {
+    console.error("Error in getUserById:", error);
+    return null;
   }
-
-  users = [...users.slice(0, userIndex), updatedUser, ...users.slice(userIndex + 1)]
-
-  return updatedUser
 }
 
-export async function deleteUserById(id: string): Promise<boolean> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+export async function createUser(userData: Omit<User, "id" | "created_at">): Promise<User> {
+  try {
+    const response = await ApiService.post("/users/new", userData);
+    return response;
+  } catch (error) {
+    console.error("Error in createUser:", error);
+    throw error;
+  }
+}
 
-  const userIndex = users.findIndex((user) => user.id === id)
-  if (userIndex === -1) return false
+export async function updateUser(id: number, userData: Partial<Omit<User, "id" | "created_at">>): Promise<User | null> {
+  try {
+    const response = await ApiService.patch(`/users/${id}`, userData);
+    return response;
+  } catch (error) {
+    console.error("Error in updateUser:", error);
+    throw error;
+  }
+}
 
-  users = [...users.slice(0, userIndex), ...users.slice(userIndex + 1)]
-
-  return true
+export async function deleteUserById(id: number): Promise<boolean> {
+  try {
+    const response = await ApiService.delete(`/users/${id}`);
+    return response;
+  } catch (error) {
+    console.error("Error in deleteUserById:", error);
+    throw error;
+  }
 }
