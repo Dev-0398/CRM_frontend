@@ -64,7 +64,7 @@ export default function UsersPage() {
       try {
         const success = await deleteUserById(id)
         if (success) {
-          setUsers(users.filter((user) => user.id !== id))
+        setUsers(users.filter((user) => user.id !== id))
           toast({
             title: "Success",
             description: "User deleted successfully",

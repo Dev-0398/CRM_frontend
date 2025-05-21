@@ -12,12 +12,12 @@ export default class ApiService {
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
+      const result = await response.json();
         if (!response.ok) {
           throw new Error(result.msg || `HTTP error! status: ${response.status}`);
         }
-        if (result.status === "error") {
-          console.error("GET Error:", result);
+      if (result.status === "error") {
+        console.error("GET Error:", result);
           throw new Error(result.msg || "Failed to fetch data");
         }
         return result.response;
@@ -45,15 +45,15 @@ export default class ApiService {
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
+      const result = await response.json();
         if (!response.ok) {
           throw new Error(result.msg || `HTTP error! status: ${response.status}`);
         }
-        if (result.status === "error") {
-          console.error("POST Error:", result);
+      if (result.status === "error") {
+        console.error("POST Error:", result);
           throw new Error(result.msg || "Failed to create data");
         }
-        return result.response;
+      return result.response;
       } else {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -78,12 +78,12 @@ export default class ApiService {
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
+      const result = await response.json();
         if (!response.ok) {
           throw new Error(result.msg || `HTTP error! status: ${response.status}`);
         }
-        if (result.status === "error") {
-          console.error("PATCH Error:", result);
+      if (result.status === "error") {
+        console.error("PATCH Error:", result);
           throw new Error(result.msg || "Failed to update data");
         }
         return result;
@@ -110,12 +110,12 @@ export default class ApiService {
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
+      const result = await response.json();
         if (!response.ok) {
           throw new Error(result.msg || `HTTP error! status: ${response.status}`);
         }
-        if (result.status === "error") {
-          console.error("DELETE Error:", result);
+      if (result.status === "error") {
+        console.error("DELETE Error:", result);
           throw new Error(result.msg || "Failed to delete data");
         }
         return true;
@@ -123,7 +123,7 @@ export default class ApiService {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return true;
+      return true;
       }
     } catch (error: any) {
       console.error("DELETE Exception:", error);
