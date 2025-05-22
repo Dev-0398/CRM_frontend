@@ -24,3 +24,22 @@ export interface User {
   is_active: boolean
   created_at: string
 }
+
+export interface LoginSession {
+  id: string
+  userId: string
+  loginTime: string
+  logoutTime: string | null
+  duration: number | null // Duration in minutes
+  isCompleted: boolean
+  isMinimumHoursMet: boolean // Did the user complete minimum 9 hours
+}
+
+export interface AttendanceSummary {
+  totalSessions: number
+  completedSessions: number
+  totalHours: number
+  averageHoursPerDay: number
+  minimumHoursMetCount: number
+  minimumHoursPercentage: number
+}
