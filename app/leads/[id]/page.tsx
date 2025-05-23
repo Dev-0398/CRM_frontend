@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChevronLeft, Edit, Trash2, Mail, Phone } from "lucide-react"
 import type { Lead } from "@/lib/types"
 import { getLeadById, deleteLeadById } from "@/lib/actions"
+import Swal from "sweetalert2"
 
 export default function LeadDetailPage() {
   const params = useParams()
@@ -36,12 +37,24 @@ export default function LeadDetailPage() {
   const handleDelete = async () => {
     if (!lead) return
 
-    if (window.confirm("Are you sure you want to delete this lead?")) {
+    const result = await Swal.fire({
+      title: "Are you sure you want to delete this lead?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel"
+    })
+
+    if (result.isConfirmed) {
       try {
         await deleteLeadById(lead.id)
+        Swal.fire("Deleted!", "Lead has been deleted.", "success")
         router.push("/leads")
       } catch (error) {
         console.error("Failed to delete lead:", error)
+        Swal.fire("Error", "Failed to delete lead", "error")
       }
     }
   }

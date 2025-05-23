@@ -34,7 +34,7 @@ const roleOptions = [
 export function UserForm({ user }: { user?: User }) {
   const router = useRouter()
   const { toast } = useToast()
-  const [formData, setFormData] = useState<Omit<User, "id" | "created_at">>(
+  const [formData, setFormData] = useState<Omit<User, "id" | "created_at"> & { password?: string }>(
     user
       ? {
           full_name: user.full_name,
@@ -42,7 +42,7 @@ export function UserForm({ user }: { user?: User }) {
           role: user.role,
           is_active: user.is_active,
         }
-      : initialUserState,
+      : { ...initialUserState, password: "" },
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -122,6 +122,11 @@ export function UserForm({ user }: { user?: User }) {
       newErrors.role = "Role is required"
     }
 
+    // Only require password for new user creation
+    if (!user && (!formData.password || formData.password.length < 6)) {
+      newErrors.password = "Password must be at least 6 characters"
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -132,6 +137,7 @@ export function UserForm({ user }: { user?: User }) {
     if (!validateForm()) {
       // Mark all fields as touched to show errors
       const allFields = { full_name: true, email: true, role: true, is_active: true }
+      if (!user) allFields["password"] = true
       setTouchedFields(allFields)
       return
     }
@@ -140,8 +146,9 @@ export function UserForm({ user }: { user?: User }) {
 
     try {
       if (user) {
-        // Update existing user
-        const response = await updateUser(user.id, formData)
+        // Update existing user (exclude password)
+        const { password, ...editPayload } = formData;
+        const response = await updateUser(user.id, editPayload);
         toast({
           title: "Success",
           description: response.msg || "User updated successfully",
@@ -149,8 +156,9 @@ export function UserForm({ user }: { user?: User }) {
         })
         router.push("/users")
       } else {
-        // Create new user
-        const response = await createUser(formData)
+        // Create new user (include password)
+        const { password, ...userPayload } = formData
+        const response = await createUser({ ...userPayload, password: password || "" })
         toast({
           title: "Success",
           description: response.msg || "User created successfully",
@@ -268,6 +276,17 @@ export function UserForm({ user }: { user?: User }) {
               "email",
               <Mail className="h-4 w-4" />,
               "Email address used for login and notifications",
+            )}
+
+            {/* Password field only for new user creation */}
+            {!user && renderFormField(
+              "password",
+              "Password",
+              "Enter password",
+              true,
+              "password",
+              <ShieldCheck className="h-4 w-4" />,
+              "Password must be at least 6 characters",
             )}
 
             <div className="space-y-2">

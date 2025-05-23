@@ -74,7 +74,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center justify-center space-y-3">
           <div className="relative h-20 w-20 overflow-hidden">
             <Image 
-              src="/LOGO.png" 
+              src="/logo.png" 
               alt="CRM Logo" 
               fill
               className="object-contain"

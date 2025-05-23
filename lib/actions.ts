@@ -17,14 +17,15 @@ let users: User[] = []
 export async function getLeads(): Promise<Lead[]> {
   try {
     const response = await ApiService.get("/leads/");
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    if (Array.isArray(response)) {
-      leads = [...response];
+    console.log("API /leads response:", response); // Debug print
+    if (response?.data && Array.isArray(response.data)) {
+      leads = response.data.map((lead: any) => ({
+        ...lead,
+        descri: lead.descr || "",
+      }));
     } else {
-      console.warn("Failed to load leads:", response?.msg || "Unknown error");
+      console.warn("Failed to load leads:", response?.message || "Unknown error");
     }
-
     return leads;
   } catch (error) {
     console.error("Error in getLeads:", error);
@@ -40,8 +41,14 @@ export async function getLeads(): Promise<Lead[]> {
  */
 export async function getLeadById(id: string): Promise<Lead | null> {
   try {
-    const lead = await ApiService.get(`/leads/${id}`);
-    return lead;
+    const response = await ApiService.get(`/leads/${id}`);
+    if (response?.data) {
+      return {
+        ...response.data,
+        descri: response.data.descr || "",
+      };
+    }
+    return null;
   } catch (error) {
     console.error("Error fetching lead:", error);
     return null;
@@ -55,8 +62,6 @@ export async function getLeadById(id: string): Promise<Lead | null> {
  * @returns {Promise<Lead>} A promise that resolves to the newly created lead.
  */
 export async function createLead(leadData: Omit<Lead, "id">): Promise<Lead> {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
   const payload: Omit<Lead, "id"> = {
     ...leadData,
     lead_owner: leadData.lead_owner || "Unassigned",
@@ -69,13 +74,11 @@ export async function createLead(leadData: Omit<Lead, "id">): Promise<Lead> {
     country: leadData.country || "",
     descri: leadData.descri || "",
   };
-
+  console.log("Creating lead with payload:", payload); // Debug print
   const newLeadDB = await ApiService.post("/leads/new", payload);
-
   if (newLeadDB?.id) {
     leads = [...leads, newLeadDB];
   }
-
   return newLeadDB;
 }
 
@@ -104,13 +107,10 @@ export async function updateLead(id: number, data: Partial<Lead>): Promise<{ msg
  */
 export async function deleteLeadById(id: string): Promise<boolean> {
   await ApiService.delete(`/leads/${id}`);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  const leadIndex = leads.findIndex((lead) => lead.id === id);
+  // Remove the lead from the local cache, converting id to string for comparison
+  const leadIndex = leads.findIndex((lead) => String(lead.id) === String(id));
   if (leadIndex === -1) return false;
-
   leads = [...leads.slice(0, leadIndex), ...leads.slice(leadIndex + 1)];
-
   return true;
 }
 
@@ -118,7 +118,11 @@ export async function deleteLeadById(id: string): Promise<boolean> {
 export async function getUsers(): Promise<User[]> {
   try {
     const response = await ApiService.get("/users/");
-    return response || [];
+    console.log("API /users response:", response); // Debug print
+    if (response?.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
   } catch (error) {
     console.error("Error in getUsers:", error);
     return [];
@@ -128,7 +132,7 @@ export async function getUsers(): Promise<User[]> {
 export async function getUserById(id: number): Promise<User | null> {
   try {
     const response = await ApiService.get(`/users/${id}`);
-    return response || null;
+    return response?.data || null;
   } catch (error) {
     console.error("Error in getUserById:", error);
     return null;

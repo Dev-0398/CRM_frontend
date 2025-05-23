@@ -10,23 +10,19 @@ export default class ApiService {
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-      const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
-        }
-      if (result.status === "error") {
-        console.error("GET Error:", result);
+        const result = await response.json();
+        if (result.status === "error") {
           throw new Error(result.msg || "Failed to fetch data");
         }
-        return result.response;
-      } else {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return null;
+        return result;
       }
+      return null;
     } catch (error: any) {
       console.error("GET Exception:", error);
       throw error;
@@ -43,23 +39,19 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-      const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
-        }
-      if (result.status === "error") {
-        console.error("POST Error:", result);
+        const result = await response.json();
+        if (result.status === "error") {
           throw new Error(result.msg || "Failed to create data");
         }
-      return result.response;
-      } else {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return { msg: "Data created successfully" };
+        return result.data || result;
       }
+      return { msg: "Data created successfully" };
     } catch (error: any) {
       console.error("POST Exception:", error);
       throw error;
@@ -76,23 +68,19 @@ export default class ApiService {
         body: JSON.stringify(body),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-      const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
-        }
-      if (result.status === "error") {
-        console.error("PATCH Error:", result);
+        const result = await response.json();
+        if (result.status === "error") {
           throw new Error(result.msg || "Failed to update data");
         }
-        return result;
-      } else {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return { msg: "Data updated successfully" };
+        return result.data || result;
       }
+      return { msg: "Data updated successfully" };
     } catch (error: any) {
       console.error("PATCH Exception:", error);
       throw error;
@@ -108,23 +96,19 @@ export default class ApiService {
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
-      const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.msg || `HTTP error! status: ${response.status}`);
-        }
-      if (result.status === "error") {
-        console.error("DELETE Error:", result);
+        const result = await response.json();
+        if (result.status === "error") {
           throw new Error(result.msg || "Failed to delete data");
         }
         return true;
-      } else {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      return true;
       }
+      return true;
     } catch (error: any) {
       console.error("DELETE Exception:", error);
       throw error;
