@@ -51,7 +51,21 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/logout", {
+        method: "POST",
+      });
 
+      if (res.ok) {
+        window.location.href = "/login";
+      } else {
+        console.error("Logout failed");
+      }
+    } catch (error) {
+      console.error("An error occurred during logout:", error);
+    }
+  };
   return (
     <Sidebar className="border-r bg-white">
       {/* Sidebar Header */}
@@ -109,11 +123,7 @@ export function AppSidebar() {
           })}
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => {
-                document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                window.location.href = "/login";
-              }}
+              onClick={handleLogout}
               className="group flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-gray-600 hover:bg-[#d32525]/5 hover:text-[#d32525] transition-all cursor-pointer w-full"
             >
               <svg

@@ -1,22 +1,38 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import jwt from "jsonwebtoken";
 import { serialize } from "cookie";
+import configs from "@/config"
 
-const SECRET_KEY = "953a8ced-57ec-4c98-9cce-34d10e4dc8ad";
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
 
   const { username, password } = req.body;
+  try {
+    const fastapiResponse = await fetch(`${configs.API_BASE_URL}/auth/token`, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "password",
+        username,
+        password,
+        scope: "",
+        client_id: "string",
+        client_secret: "string",
+      }),
+    });
 
-  if (username === "admin@gmail.com" && password === "admin123") {
-    const token = jwt.sign({ username, name: "Murali", role: "User" }, SECRET_KEY, { expiresIn: "1h" });
-    const role = "User";
-    const cookieHasToset = [
-      { name: "role", value: role },
-      { name: "token", value: token },
-    ];
-    const cookies = cookieHasToset.map(({ name, value }) =>
+    if (!fastapiResponse.ok) {
+      return res.status(fastapiResponse.status).json({ message: "Invalid credentials" });
+    }
+    const data = await fastapiResponse.json();
+    const cookieData = {
+      token: data.access_token,
+      role: data.user?.role || "",
+    };
+
+    const cookieList = Object.entries(cookieData).map(([name, value]) =>
       serialize(name, value, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -25,9 +41,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         maxAge: 3600,
       })
     );
-    res.setHeader("Set-Cookie", cookies);
-    return res.status(200).json({ message: "Logged in" });
-  }
+    res.setHeader("Set-Cookie", cookieList);
+    return res.status(200).json(data);
 
-  res.status(401).json({ message: "Invalid credentials" });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
 }

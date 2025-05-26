@@ -1,4 +1,5 @@
-const BASE_URL = "http://127.0.0.1:8000";
+import configs from "@/config"
+const BASE_URL = configs.API_BASE_URL;
 
 export default class ApiService {
   static async get(endpoint: string) {
