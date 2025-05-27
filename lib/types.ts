@@ -18,7 +18,7 @@ export interface Lead {
 
 export interface User {
   id: number
-  full_name: string
+  name: string
   email: string
   role: string
   is_active: boolean

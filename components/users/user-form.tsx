@@ -179,13 +179,17 @@ export function UserForm({ user }: { user?: User }) {
   }
 
   const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-  }
+    if (!name.trim()) return "";
 
+    const words = name.trim().split(/\s+/);
+    if (words.length > 1) {
+      return (
+        words[0][0].toUpperCase() + words[words.length - 1][0].toUpperCase()
+      );
+    }
+    return words[0][0].toUpperCase();
+  };
+  
   const renderFormField = (
     name: string,
     label: string,

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +11,8 @@ import {
   Settings,
   FileSpreadsheet,
   Clock,
+  ChevronDown,
+  LogOut,
 } from "lucide-react"
 import {
   Sidebar,
@@ -44,11 +47,6 @@ const menuItems = [
     href: "/users",
   },
   {
-    title: "Profile",
-    icon: UserCircle,
-    href: "/profile",
-  },
-  {
     title: "Settings",
     icon: Settings,
     href: "/settings",
@@ -57,6 +55,38 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [username, setUsername] = useState<string>("")
+
+  useEffect(() => {
+    // Get username from localStorage, cookies, or API
+    const getUserData = async () => {
+      try {
+        // Option 1: From localStorage
+        const userData = localStorage.getItem("user")
+        if (userData) {
+          const user = JSON.parse(userData)
+          setUsername(user.username || user.name || "User")
+          return
+        }
+
+        // Option 2: From API call to get current user
+        const response = await fetch("/api/user/me")
+        if (response.ok) {
+          const user = await response.json()
+          setUsername(user.username || user.name || "User")
+        } else {
+          setUsername("User")
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+        setUsername("User")
+      }
+    }
+
+    getUserData()
+  }, [])
+
   const handleLogout = async () => {
     try {
       const res = await fetch("/api/logout", {
@@ -64,6 +94,7 @@ export function AppSidebar() {
       });
 
       if (res.ok) {
+        localStorage.removeItem("user") // Clear user data
         window.location.href = "/login";
       } else {
         console.error("Logout failed");
@@ -72,6 +103,20 @@ export function AppSidebar() {
       console.error("An error occurred during logout:", error);
     }
   };
+
+  const userMenuItems = [
+    {
+      title: "Profile",
+      icon: UserCircle,
+      href: "/profile",
+    },
+    {
+      title: "Logout",
+      icon: LogOut,
+      onClick: handleLogout,
+    },
+  ]
+
   return (
     <Sidebar className="border-r bg-white">
       {/* Sidebar Header */}
@@ -127,27 +172,83 @@ export function AppSidebar() {
               </SidebarMenuItem>
             );
           })}
+          
+          {/* User Menu */}
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={handleLogout}
-              className="group flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium text-gray-600 hover:bg-[#d32525]/5 hover:text-[#d32525] transition-all cursor-pointer w-full"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className={`group flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium transition-all cursor-pointer w-full ${
+                pathname === "/profile"
+                  ? "bg-[#d32525]/10 text-[#d32525] shadow-sm"
+                  : "text-gray-600 hover:bg-[#d32525]/5 hover:text-[#d32525]"
+              }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-500 group-hover:text-[#d32525] transition-colors"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10v1m0 8a2 2 0 100-4 2 2 0 000 4z"
-                />
-              </svg>
-              <span className="text-[15px] font-medium">Logout</span>
+              <UserCircle
+                className={`h-5 w-5 ${
+                  pathname === "/profile"
+                    ? "text-[#d32525]"
+                    : "text-gray-500 group-hover:text-[#d32525]"
+                } transition-colors`}
+              />
+              <span className="text-[15px] font-medium flex-1 text-left">
+                {username}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  isUserMenuOpen ? "rotate-180" : ""
+                } ${
+                  pathname === "/profile"
+                    ? "text-[#d32525]"
+                    : "text-gray-500 group-hover:text-[#d32525]"
+                }`}
+              />
             </SidebarMenuButton>
+            
+            {/* Submenu */}
+            {isUserMenuOpen && (
+              <div className="ml-4 mt-1 space-y-1">
+                {userMenuItems.map((item) => {
+                  const isActive = item.href && pathname === item.href;
+                  
+                  if (item.onClick) {
+                    return (
+                      <SidebarMenuButton
+                        key={item.title}
+                        onClick={item.onClick}
+                        className="group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-[#d32525]/5 hover:text-[#d32525] transition-all cursor-pointer w-full"
+                      >
+                        <item.icon className="h-4 w-4 text-gray-500 group-hover:text-[#d32525] transition-colors" />
+                        <span className="text-[14px] font-medium">{item.title}</span>
+                      </SidebarMenuButton>
+                    );
+                  }
+                  
+                  return (
+                    <SidebarMenuButton
+                      key={item.title}
+                      asChild
+                      isActive={isActive}
+                      className={`group flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                        isActive
+                          ? "bg-[#d32525]/10 text-[#d32525] shadow-sm"
+                          : "text-gray-600 hover:bg-[#d32525]/5 hover:text-[#d32525]"
+                      }`}
+                    >
+                      <Link href={item.href!} className="flex items-center gap-3 w-full">
+                        <item.icon
+                          className={`h-4 w-4 ${
+                            isActive
+                              ? "text-[#d32525]"
+                              : "text-gray-500 group-hover:text-[#d32525]"
+                          } transition-colors`}
+                        />
+                        <span className="text-[14px] font-medium">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  );
+                })}
+              </div>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>

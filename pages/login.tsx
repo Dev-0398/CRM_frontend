@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context"
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -30,6 +31,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { login } = useAuth()
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,30 +43,12 @@ export default function LoginPage() {
     },
   });
 
-  const login = async(username:string,password:string)=>{
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-  }
-  async function onSubmit(data: LoginFormValues) {
-    setIsLoading(true)
-    try {
-      await login(data.email, data.password)
-      toast({
-        title: "Login successful",
-        description: "Welcome back to the CRM system",
-      })
-      router.push("/")
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Invalid email or password. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+  const handleSubmit = async (e: React.FormEvent) => {
+    const success = await login(form.getValues("email"),form.getValues("password"))
+    if (success) {
+      router.push('/')
+    } else {
+      console.log("eroor");
     }
   }
 
@@ -88,7 +72,7 @@ export default function LoginPage() {
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
             <FormField
               control={form.control}
               name="email"
