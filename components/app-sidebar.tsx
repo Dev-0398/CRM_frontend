@@ -9,6 +9,7 @@ import {
   UserCircle,
   Settings,
   FileSpreadsheet,
+  Clock,
 } from "lucide-react"
 import {
   Sidebar,
@@ -31,6 +32,11 @@ const menuItems = [
     title: "Leads",
     icon: FileSpreadsheet,
     href: "/leads",
+  },
+  {
+    title: "Attendance",
+    icon: Clock,
+    href: "/attendance",
   },
   {
     title: "Users",
