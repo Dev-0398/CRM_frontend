@@ -6,7 +6,6 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
-import { useApiService } from "./useApiService"
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] })
