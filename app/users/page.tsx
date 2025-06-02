@@ -14,6 +14,7 @@ import { getUsers, deleteUserById } from "@/lib/actions"
 import type { User } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import Swal from "sweetalert2"
+import { useAuth } from "@/lib/auth-context"
 
 export default function UsersPage() {
   const router = useRouter()
@@ -21,11 +22,22 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const { user, isLoading: authLoading, getAuthHeaders } = useAuth()
 
   useEffect(() => {
     const fetchUsers = async () => {
+      const authHeaders = getAuthHeaders()
+      if (!authHeaders) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access leads",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
       try {
-        const fetchedUsers = await getUsers()
+        const fetchedUsers = await getUsers(authHeaders.token, authHeaders.tokenType)
         setUsers(fetchedUsers)
       } catch (error: any) {
         console.error("Failed to fetch users:", error)

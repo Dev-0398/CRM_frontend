@@ -5,6 +5,9 @@ import "./globals.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/lib/auth-context"
+import { useApiService } from "./useApiService"
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -16,9 +19,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -26,7 +29,12 @@ export default function RootLayout({
           <SidebarProvider>
             <div className="flex min-h-screen w-full">
               <AppSidebar />
-              <SidebarInset className="flex-1">{children}</SidebarInset>
+              <SidebarInset className="flex-1">
+                <AuthProvider>
+                    {children}
+                  <Toaster />
+                </AuthProvider>
+              </SidebarInset>
             </div>
           </SidebarProvider>
         </ThemeProvider>

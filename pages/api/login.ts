@@ -3,6 +3,17 @@ import { serialize } from "cookie";
 import configs from "@/config"
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== "POST") return res.status(405).end();
 
   const { username, password } = req.body;
@@ -21,11 +32,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         client_id: "string",
         client_secret: "string",
       }),
+      // Add timeout and keepalive
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+      keepalive: true,
     });
 
     if (!fastapiResponse.ok) {
-      return res.status(fastapiResponse.status).json({ message: "Invalid credentials" });
+      const errorData = await fastapiResponse.json().catch(() => ({}));
+      return res.status(fastapiResponse.status).json({ 
+        message: "Invalid credentials",
+        details: errorData 
+      });
     }
+
     const data = await fastapiResponse.json();
     const cookieData = {
       token: data.access_token,
@@ -46,6 +65,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorDetails = {
+      message: "Failed to connect to authentication service",
+      details: errorMessage,
+      timestamp: new Date().toISOString()
+    };
+    return res.status(500).json(errorDetails);
   }
 }

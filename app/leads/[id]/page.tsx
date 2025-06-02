@@ -10,18 +10,20 @@ import { ChevronLeft, Edit, Trash2, Mail, Phone } from "lucide-react"
 import type { Lead } from "@/lib/types"
 import { getLeadById, deleteLeadById } from "@/lib/actions"
 import Swal from "sweetalert2"
+import { useAuth } from "@/lib/auth-context"
 
 export default function LeadDetailPage() {
   const params = useParams()
   const router = useRouter()
   const [lead, setLead] = useState<Lead | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const {user} = useAuth()
 
   useEffect(() => {
     const fetchLead = async () => {
       try {
         if (typeof params.id === "string") {
-          const fetchedLead = await getLeadById(params.id)
+          const fetchedLead = await getLeadById(params.id,user?.token,user?.tokenType)
           setLead(fetchedLead)
         }
       } catch (error) {
@@ -77,7 +79,7 @@ export default function LeadDetailPage() {
       <div className="p-6 space-y-6">
         <div className="mb-6">
           <Link href="/leads">
-            <Button variant="ghost" className="pl-0">
+            <Button variant="ghost" className="pl-0 hover:bg-black hover:text-white">
               <ChevronLeft className="mr-2 h-4 w-4" />
               Back to Leads
             </Button>
@@ -98,7 +100,7 @@ export default function LeadDetailPage() {
     <div className="p-6 space-y-6">
       <div className="mb-6">
         <Link href="/leads">
-          <Button variant="ghost" className="pl-0">
+          <Button variant="ghost" className="pl-0 hover:bg-black hover:text-white">
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Leads
           </Button>

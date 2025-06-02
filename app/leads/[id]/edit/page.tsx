@@ -67,9 +67,9 @@ export default function EditLeadPage() {
       <div className="p-6 space-y-6">
         <div className="mb-6">
           <Link href="/leads">
-            <Button variant="ghost" className="pl-0">
+            <Button variant="ghost" className="pl-0 hover:bg-black hover:text-white">
               <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Leads
+              Back to Leads 
             </Button>
           </Link>
         </div>
@@ -88,7 +88,7 @@ export default function EditLeadPage() {
     <div className="p-6 space-y-6">
       <div className="mb-6">
         <Link href={`/leads/${lead.id}`}>
-          <Button variant="ghost" className="pl-0">
+          <Button variant="ghost" className="pl-0 hover:bg-black hover:text-white">
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Lead Details
           </Button>

@@ -13,9 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { CheckCircle2, HelpCircle, AlertCircle, Mail, ShieldCheck } from "lucide-react"
+import { CheckCircle2, HelpCircle, AlertCircle, Mail, ShieldCheck, Users } from "lucide-react"
 import type { User } from "@/lib/types"
-import { createUser, updateUser } from "@/lib/actions"
+import { createUser, updateUser,getUsers } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 
 const initialUserState: Omit<User, "id" | "created_at"> = {
@@ -23,6 +23,7 @@ const initialUserState: Omit<User, "id" | "created_at"> = {
   email: "",
   role: "User",
   is_active: true,
+  reporting_to: "",
 }
 
 const roleOptions = [
@@ -31,7 +32,11 @@ const roleOptions = [
   { value: "User", label: "User", description: "Basic access to leads only" },
 ]
 
+
 export function UserForm({ user }: { user?: User }) {
+  const [reportingToOptions, setReportingToOptions] = useState<
+    { value: string; label: string; role: string;}[]
+  >([]);
   const router = useRouter()
   const { toast } = useToast()
   const [formData, setFormData] = useState<Omit<User, "id" | "created_at"> & { password?: string }>(
@@ -41,6 +46,7 @@ export function UserForm({ user }: { user?: User }) {
           email: user.email,
           role: user.role,
           is_active: user.is_active,
+          reporting_to: user.reporting_to || "",
         }
       : { ...initialUserState, password: "" },
   )
@@ -48,7 +54,19 @@ export function UserForm({ user }: { user?: User }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const [formComplete, setFormComplete] = useState(false)
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const users = await getUsers();
+      const allUsers = users.filter(user => user.role !== "User").map((user) => ({
+        value: user.email,
+        label: user.full_name,
+        role: user.role
+      }));
+      setReportingToOptions(allUsers);
+    };
 
+    fetchUsers();
+  }, []);
   useEffect(() => {
     // Check if form is complete on initial load (for edit mode)
     if (user) {
@@ -87,6 +105,16 @@ export function UserForm({ user }: { user?: User }) {
       })
     }
 
+    // Clear reporting_to field if role is Admin
+    if (name === "role" && value === "Admin") {
+      setFormData((prev) => ({ ...prev, reporting_to: "" }))
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors.reporting_to
+        return newErrors
+      })
+    }
+
     // Check if form is complete
     checkFormCompletion()
   }
@@ -101,6 +129,12 @@ export function UserForm({ user }: { user?: User }) {
 
   const checkFormCompletion = () => {
     const requiredFields = ["full_name", "email", "role"]
+    
+    // Add reporting_to as required field if role is not Admin
+    if (formData.role !== "Admin") {
+      requiredFields.push("reporting_to")
+    }
+    
     const isComplete = requiredFields.every((field) => formData[field as keyof typeof formData] && !errors[field])
     setFormComplete(isComplete)
   }
@@ -122,6 +156,11 @@ export function UserForm({ user }: { user?: User }) {
       newErrors.role = "Role is required"
     }
 
+    // Reporting to is required for non-Admin roles
+    if (formData.role !== "Admin" && !formData.reporting_to?.trim()) {
+      newErrors.reporting_to = "Reporting to is required for this role"
+    }
+
     // Only require password for new user creation
     if (!user && (!formData.password || formData.password.length < 6)) {
       newErrors.password = "Password must be at least 6 characters"
@@ -136,7 +175,7 @@ export function UserForm({ user }: { user?: User }) {
 
     if (!validateForm()) {
       // Mark all fields as touched to show errors
-      const allFields = { full_name: true, email: true, role: true, is_active: true }
+      const allFields = { full_name: true, email: true, role: true, is_active: true, reporting_to: true }
       if (!user) allFields["password"] = true
       setTouchedFields(allFields)
       return
@@ -179,13 +218,17 @@ export function UserForm({ user }: { user?: User }) {
   }
 
   const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-  }
+    if (!name.trim()) return "";
 
+    const words = name.trim().split(/\s+/);
+    if (words.length > 1) {
+      return (
+        words[0][0].toUpperCase() + words[words.length - 1][0].toUpperCase()
+      );
+    }
+    return words[0][0].toUpperCase();
+  };
+  
   const renderFormField = (
     name: string,
     label: string,
@@ -333,6 +376,64 @@ export function UserForm({ user }: { user?: User }) {
                 </div>
               )}
             </div>
+
+            {/* Reporting To field - only show if role is not Admin */}
+            {formData.role !== "Admin" && (
+              <div className="space-y-2">
+                <Label htmlFor="reporting_to" className="flex items-center">
+                  <Users className="h-4 w-4 mr-2" />
+                  Reporting To <span className="text-red-500 ml-1">*</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 ml-1 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="w-60">Select the person this user reports to</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {touchedFields.reporting_to && !errors.reporting_to && formData.reporting_to && (
+                    <CheckCircle2 className="h-4 w-4 ml-auto text-green-500" />
+                  )}
+                </Label>
+                <Select 
+                  value={formData.reporting_to} 
+                  onValueChange={(value) => handleSelectChange("reporting_to", value)}
+                >
+                  <SelectTrigger
+                    id="reporting_to"
+                    className={`${
+                      errors.reporting_to 
+                        ? "border-red-500" 
+                        : touchedFields.reporting_to && formData.reporting_to 
+                          ? "border-green-500" 
+                          : ""
+                    }`}
+                  >
+                    <SelectValue placeholder="Select supervisor/manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reportingToOptions.map((person) => (
+                      <SelectItem key={person.value} value={person.value}>
+                        <div className="flex flex-col">
+                          <span>{person.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {person.role} • {person.value}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.reporting_to && (
+                  <div className="flex items-center text-red-500 text-sm mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>{errors.reporting_to}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between space-x-2 p-4 bg-muted/30 rounded-lg">
               <div className="flex items-center space-x-2">

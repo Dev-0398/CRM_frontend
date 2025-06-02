@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PlusCircle, Search, List, LayoutGrid } from "lucide-react"
 import { LeadCard } from "@/components/leads/lead-card"
 import type { Lead } from "@/lib/types"
+import { useAuth } from "@/lib/auth-context"
 import { getLeads, deleteLeadById } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 import Swal from "sweetalert2"
@@ -18,14 +19,32 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const { user, isLoading: authLoading, getAuthHeaders } = useAuth()
 
   useEffect(() => {
     const fetchLeads = async () => {
+      // Wait for auth to load and ensure we have valid auth headers
+      if (authLoading) return
+      
+      const authHeaders = getAuthHeaders()
+      if (!authHeaders) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access leads",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
       try {
-        const fetchedLeads = await getLeads()
+        const fetchedLeads = await getLeads(authHeaders.token, authHeaders.tokenType)
         setLeads(fetchedLeads)
       } catch (error: any) {
         console.error("Failed to fetch leads:", error)
+        
+        // Handle 401 specifically
+        if (error.message?.includes('401') || error.message?.includes('Authentication'))
         toast({
           title: "Error",
           description: error.message || "Failed to fetch leads",

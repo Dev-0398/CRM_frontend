@@ -16,14 +16,31 @@ export interface Lead {
   descri: string
 }
 
-export interface User {
-  id: number
-  full_name: string
-  email: string
-  role: string
-  is_active: boolean
-  created_at: string
+export class User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  token: string = "";
+  tokenType: string = "";
+  reporting_to: string = "";
+
+  constructor(data: Partial<User> = {}) {
+    this.id = data.id ?? 0;
+    this.name = data.name ?? "";
+    this.email = data.email ?? "";
+    this.role = data.role ?? "user";
+    this.is_active = data.is_active ?? true;
+    this.created_at = data.created_at ?? new Date().toISOString();
+    this.token = data.token ?? "";
+    this.tokenType = data.tokenType ?? "";
+    this.reporting_to = data.reporting_to ?? "";
+  }
 }
+
+
 
 export interface LoginSession {
   id: string

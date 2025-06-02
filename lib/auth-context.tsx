@@ -1,17 +1,17 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import type { User, LoginSession } from "@/lib/types"
-import { login as loginAction, logout as logoutAction, getCurrentSession } from "@/lib/actions"
+import React, { createContext, useContext, useState, useEffect } from 'react'
+import { User, LoginSession } from './types'
 
 interface AuthContextType {
   user: Omit<User, "password"> | null
   currentSession: LoginSession | null
   login: (email: string, password: string) => Promise<boolean>
   logout: () => Promise<boolean>
+  updateUserProfile: (userData: Partial<Omit<User, "id" | "password">>) => Promise<boolean>
   isLoading: boolean
+  setUser: (user: Omit<User, "password"> | null) => void
+  getAuthHeaders: () => { token: string; tokenType: string } | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -19,94 +19,177 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Omit<User, "password"> | null>(null)
   const [currentSession, setCurrentSession] = useState<LoginSession | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize auth state from localStorage on client side
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    const storedSessionId = localStorage.getItem("sessionId")
-
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-
-        // Fetch current session if user exists
-        if (parsedUser?.id && storedSessionId) {
-          getCurrentSession(parsedUser.id).then((session) => {
-            setCurrentSession(session)
-          })
-        }
-      } catch (error) {
-        console.error("Failed to parse stored user:", error)
-        localStorage.removeItem("user")
-        localStorage.removeItem("sessionId")
+  // Get auth headers helper function
+  const getAuthHeaders = () => {
+    if (user?.token && user?.tokenType) {
+      return {
+        token: user.token,
+        tokenType: user.tokenType
       }
     }
+    return null
+  }
+
+  // Initialize auth state
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Check if we have stored user data
+        const storedUser = localStorage.getItem('user')
+        const storedSession = localStorage.getItem('currentSession')
+        
+        if (storedUser) {
+          const userData = JSON.parse(storedUser)
+          console.log('Loaded user from localStorage:', userData)
+          setUser(userData)
+        }
+        
+        if (storedSession) {
+          const sessionData = JSON.parse(storedSession)
+          setCurrentSession(sessionData)
+        }
+
+        // Only create mock user if no stored user AND no valid token
+        if (!storedUser) {
+          // For development, you might want to comment this out and force proper login
+          const mockUser = {
+            id: 1,
+            name: "Naveen Kumar",
+            email: "naveen@example.com",
+            role: "Admin",
+            created_at: new Date().toISOString(),
+            token: "your-mock-token", // Add a mock token for development
+            tokenType: "Bearer"
+          }
+          setUser(mockUser)
+          localStorage.setItem('user', JSON.stringify(mockUser))
+          console.log('Created mock user:', mockUser)
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    initializeAuth()
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true)
     try {
-      const { user: loggedInUser, sessionId } = await loginAction(email, password)
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: email, password }),
+      })
 
-      if (loggedInUser && sessionId) {
-        setUser(loggedInUser)
-        const session = await getCurrentSession(loggedInUser.id)
-        setCurrentSession(session)
+      if (response.ok) {
+        const data = await response.json()
+        const userData: Omit<User, "password"> = {
+          id: data.user?.id || 1,
+          name: data.user?.full_name || 'User',
+          email: data.user?.email || email,
+          role: data.user?.role || 'User',
+          is_active: data.user?.is_active || true,
+          created_at: data.user?.created_at || new Date().toISOString(),
+          token: data?.access_token,
+          tokenType: data?.token_type || 'Bearer'
+        }
 
-        // Store user and session data in localStorage
-        localStorage.setItem("user", JSON.stringify(loggedInUser))
-        localStorage.setItem("sessionId", sessionId)
+        const sessionData: LoginSession = {
+          id: data.session_id || `session_${Date.now()}`,
+          userId: userData.id.toString(),
+          loginTime: new Date().toISOString(),
+          logoutTime: null,
+          duration: null,
+          isCompleted: false,
+          isMinimumHoursMet: false,
+        }
 
+        setUser(userData)
+        setCurrentSession(sessionData)
+        localStorage.setItem('user', JSON.stringify(userData))
+        localStorage.setItem('currentSession', JSON.stringify(sessionData))
         return true
       }
-
       return false
     } catch (error) {
-      console.error("Login failed:", error)
+      console.error('Login error:', error)
       return false
     } finally {
       setIsLoading(false)
     }
   }
 
-  const logout = async () => {
-    setIsLoading(true)
+  const logout = async (): Promise<boolean> => {
     try {
-      const sessionId = localStorage.getItem("sessionId")
-      if (!sessionId) return false
-
-      const success = await logoutAction(sessionId)
-      if (success) {
-        // Clear localStorage and state
-        localStorage.removeItem("user")
-        localStorage.removeItem("sessionId")
-        setUser(null)
-        setCurrentSession(null)
-        router.push("/login")
-        return true
+      if (currentSession) {
+        const updatedSession = {
+          ...currentSession,
+          logoutTime: new Date().toISOString(),
+          duration: Math.floor((Date.now() - new Date(currentSession.loginTime).getTime()) / (1000 * 60)),
+          isCompleted: true,
+        }
+        localStorage.setItem('currentSession', JSON.stringify(updatedSession))
       }
 
-      return false
+      setUser(null)
+      setCurrentSession(null)
+      localStorage.removeItem('user')
+      localStorage.removeItem('currentSession')
+
+      try {
+        await fetch('/api/logout', { method: 'POST' })
+      } catch (error) {
+        console.log('Logout API call failed, but continuing with local logout')
+      }
+      
+      return true
     } catch (error) {
-      console.error("Logout failed:", error)
+      console.error('Logout error:', error)
       return false
-    } finally {
-      setIsLoading(false)
+    }
+  }
+
+  const updateUserProfile = async (userData: Partial<Omit<User, "id" | "password">>): Promise<boolean> => {
+    if (!user) return false
+
+    try {
+      const updatedUser = { ...user, ...userData }
+      setUser(updatedUser)
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      return true
+    } catch (error) {
+      console.error('Error updating user profile:', error)
+      return false
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, currentSession, login, logout, isLoading }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{
+      user,
+      currentSession,
+      login,
+      logout,
+      updateUserProfile,
+      isLoading,
+      setUser,
+      getAuthHeaders,
+    }}>
+      {children}
+    </AuthContext.Provider>
   )
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }
