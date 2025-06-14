@@ -18,24 +18,26 @@ export interface Lead {
 
 export class User {
   id: number;
+  full_name: string;
   name: string;
   email: string;
   role: string;
   is_active: boolean;
   created_at: string;
-  token: string = "";
-  tokenType: string = "";
+  token?: string;
+  tokenType?: string;
   reporting_to: string = "";
 
   constructor(data: Partial<User> = {}) {
     this.id = data.id ?? 0;
+    this.full_name = data.full_name ?? "";
     this.name = data.name ?? "";
     this.email = data.email ?? "";
     this.role = data.role ?? "user";
     this.is_active = data.is_active ?? true;
     this.created_at = data.created_at ?? new Date().toISOString();
-    this.token = data.token ?? "";
-    this.tokenType = data.tokenType ?? "";
+    this.token = data.token;
+    this.tokenType = data.tokenType;
     this.reporting_to = data.reporting_to ?? "";
   }
 }

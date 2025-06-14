@@ -15,11 +15,13 @@ import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CheckCircle2, HelpCircle, AlertCircle, Mail, ShieldCheck, Users } from "lucide-react"
 import type { User } from "@/lib/types"
-import { createUser, updateUser,getUsers } from "@/lib/actions"
+import { createUser, updateUser, getUsers } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 
 const initialUserState: Omit<User, "id" | "created_at"> = {
   full_name: "",
+  name: "",
   email: "",
   role: "User",
   is_active: true,
@@ -32,17 +34,26 @@ const roleOptions = [
   { value: "User", label: "User", description: "Basic access to leads only" },
 ]
 
+interface FormData extends Omit<User, "id" | "created_at" | "token" | "tokenType"> {
+  full_name: string;
+  name: string;
+  password?: string;
+}
 
-export function UserForm({ user }: { user?: User }) {
-  const [reportingToOptions, setReportingToOptions] = useState<
-    { value: string; label: string; role: string;}[]
-  >([]);
+interface UserFormProps {
+  user?: User;
+  onSuccess?: () => void;
+}
+
+export default function UserForm({ user, onSuccess }: UserFormProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [formData, setFormData] = useState<Omit<User, "id" | "created_at"> & { password?: string }>(
+  const { getAuthHeaders, isLoading: authLoading } = useAuth();
+  const [formData, setFormData] = useState<FormData>(
     user
       ? {
           full_name: user.full_name,
+          name: user.full_name,
           email: user.email,
           role: user.role,
           is_active: user.is_active,
@@ -54,19 +65,47 @@ export function UserForm({ user }: { user?: User }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const [formComplete, setFormComplete] = useState(false)
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const users = await getUsers();
-      const allUsers = users.filter(user => user.role !== "User").map((user) => ({
-        value: user.email,
-        label: user.full_name,
-        role: user.role
-      }));
-      setReportingToOptions(allUsers);
-    };
+  const [reportingToOptions, setReportingToOptions] = useState<
+    { value: string; label: string; role: string;}[]
+  >([]);
+  const [users, setUsers] = useState<User[]>([]);
 
-    fetchUsers();
-  }, []);
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    const fetchUsers = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          throw new Error("Authentication required. Please login again.");
+        }
+        const users = await getUsers(authHeaders.token, authHeaders.tokenType);
+        // Filter users based on selected role
+        let filteredUsers = users;
+        if (formData.role === "Manager") {
+          filteredUsers = users.filter(user => user.role === "Admin");
+        } else if (formData.role === "User") {
+          filteredUsers = users.filter(user => user.role === "Admin" || user.role === "Manager");
+        }
+        const options = filteredUsers.map((user) => ({
+          value: user.id.toString(),
+          label: user.full_name,
+          role: user.role
+        }));
+        setReportingToOptions(options);
+        setUsers(filteredUsers);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch users for reporting to",
+          variant: "destructive",
+        });
+      }
+    };
+    if (formData.role !== "Admin") {
+      fetchUsers();
+    }
+  }, [formData.role, authLoading]);
   useEffect(() => {
     // Check if form is complete on initial load (for edit mode)
     if (user) {
@@ -76,7 +115,12 @@ export function UserForm({ user }: { user?: User }) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => {
+      if (name === "full_name") {
+        return { ...prev, full_name: value, name: value };
+      }
+      return { ...prev, [name]: value };
+    })
     setTouchedFields((prev) => ({ ...prev, [name]: true }))
 
     // Clear error when field is edited
@@ -171,51 +215,62 @@ export function UserForm({ user }: { user?: User }) {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Mark all fields as touched
+    const allTouched = Object.keys(formData).reduce((acc, key) => {
+      acc[key as keyof FormData] = true;
+      return acc;
+    }, {} as Record<keyof FormData, boolean>);
+    setTouchedFields(allTouched);
 
     if (!validateForm()) {
-      // Mark all fields as touched to show errors
-      const allFields = { full_name: true, email: true, role: true, is_active: true, reporting_to: true }
-      if (!user) allFields["password"] = true
-      setTouchedFields(allFields)
-      return
+      setIsSubmitting(false);
+      return;
     }
-
-    setIsSubmitting(true)
 
     try {
-      if (user) {
-        // Update existing user (exclude password)
-        const { password, ...editPayload } = formData;
-        const response = await updateUser(user.id, editPayload);
-        toast({
-          title: "Success",
-          description: response.msg || "User updated successfully",
-          variant: "default",
-        })
-        router.push("/users")
-      } else {
-        // Create new user (include password)
-        const { password, ...userPayload } = formData
-        const response = await createUser({ ...userPayload, password: password || "" })
-        toast({
-          title: "Success",
-          description: response.msg || "User created successfully",
-          variant: "default",
-        })
-        router.push("/users")
+      const userData = {
+        ...formData,
+        full_name: formData.full_name,
+        name: formData.full_name,
+        reporting_to: formData.role === "Admin" ? "0" : String(formData.reporting_to),
+        password: formData.password || undefined,
+      };
+      console.log("Creating user with data:", userData);
+
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        setErrors((prev) => ({
+          ...prev,
+          submit: "Authentication required. Please login again.",
+        }));
+        setIsSubmitting(false);
+        return;
       }
-    } catch (error: any) {
-      console.error("Failed to save user:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save user",
-        variant: "destructive",
-      })
+
+      if (user) {
+        await updateUser(user.id, userData, authHeaders.token, authHeaders.tokenType);
+      } else {
+        await createUser(userData, authHeaders.token, authHeaders.tokenType);
+      }
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push("/users");
+      }
+    } catch (error) {
+      console.error("Error saving user:", error);
+      setErrors((prev) => ({
+        ...prev,
+        submit: "Failed to save user. Please try again.",
+      }));
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const getInitials = (name: string) => {
     if (!name.trim()) return "";
@@ -310,7 +365,7 @@ export function UserForm({ user }: { user?: User }) {
               <Mail className="h-4 w-4" />,
               "User's full name as it will appear in the system",
             )}
-
+    
             {renderFormField(
               "email",
               "Email Address",
@@ -419,7 +474,7 @@ export function UserForm({ user }: { user?: User }) {
                         <div className="flex flex-col">
                           <span>{person.label}</span>
                           <span className="text-xs text-muted-foreground">
-                            {person.role} • {person.value}
+                            {person.role}
                           </span>
                         </div>
                       </SelectItem>

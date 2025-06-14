@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.token && user?.tokenType) {
       return {
         token: user.token,
-        tokenType: user.tokenType
+        tokenType: user.tokenType.charAt(0).toUpperCase() + user.tokenType.slice(1).toLowerCase() === 'Bearer' ? 'Bearer' : 'Bearer'
       }
     }
     return null
@@ -49,23 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (storedSession) {
           const sessionData = JSON.parse(storedSession)
           setCurrentSession(sessionData)
-        }
-
-        // Only create mock user if no stored user AND no valid token
-        if (!storedUser) {
-          // For development, you might want to comment this out and force proper login
-          const mockUser = {
-            id: 1,
-            name: "Naveen Kumar",
-            email: "naveen@example.com",
-            role: "Admin",
-            created_at: new Date().toISOString(),
-            token: "your-mock-token", // Add a mock token for development
-            tokenType: "Bearer"
-          }
-          setUser(mockUser)
-          localStorage.setItem('user', JSON.stringify(mockUser))
-          console.log('Created mock user:', mockUser)
         }
       } catch (error) {
         console.error('Error initializing auth:', error)

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
-import { UserForm } from "@/components/users/user-form"
+import UserForm from "@/components/users/user-form"
 
 export default function CreateUserPage() {
   return (
