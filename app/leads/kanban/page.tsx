@@ -12,15 +12,20 @@ import { getLeads, updateLead } from "@/lib/actions"
 import type { Lead } from "@/lib/types"
 import { KanbanColumn } from "@/components/leads/kanban-column"
 import { KanbanCard } from "@/components/leads/kanban-card"
+import { useAuth } from "@/lib/auth-context"
 
 export default function LeadsKanbanPage() {
+  const { getAuthHeaders, isLoading: authLoading } = useAuth()
   const [leads, setLeads] = useState<Lead[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchLeads = async () => {
+      if (authLoading) return
+      const authHeaders = getAuthHeaders()
+      if (!authHeaders) return
       try {
-        const fetchedLeads = await getLeads()
+        const fetchedLeads = await getLeads(authHeaders.token, authHeaders.tokenType)
         setLeads(fetchedLeads)
       } catch (error) {
         console.error("Failed to fetch leads:", error)
@@ -30,7 +35,7 @@ export default function LeadsKanbanPage() {
     }
 
     fetchLeads()
-  }, [])
+  }, [getAuthHeaders, authLoading])
 
   const handleDragStart = (e: React.DragEvent, lead: Lead) => {
     e.dataTransfer.setData("application/json", JSON.stringify(lead))

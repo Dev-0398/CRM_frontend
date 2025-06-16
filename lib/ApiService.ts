@@ -38,6 +38,7 @@ export default class ApiService {
    */
   async get(endpoint: string) {
     try {
+      console.log(`[ApiService][GET] ${BASE_URL}${endpoint}`);
       const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "GET",
         headers: this.headers(),
@@ -72,6 +73,7 @@ export default class ApiService {
    */
   async post(endpoint: string, body: object) {
     try {
+      console.log(`[ApiService][POST] ${BASE_URL}${endpoint}`, body);
       const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "POST",
         headers: this.headers(),
@@ -107,6 +109,7 @@ export default class ApiService {
    */
   async patch(endpoint: string, body: object) {
     try {
+      console.log(`[ApiService][PATCH] ${BASE_URL}${endpoint}`, body);
       const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "PATCH",
         headers: this.headers(),
@@ -141,6 +144,7 @@ export default class ApiService {
    */
   async delete(endpoint: string) {
     try {
+      console.log(`[ApiService][DELETE] ${BASE_URL}${endpoint}`);
       const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "DELETE",
         headers: this.headers(),

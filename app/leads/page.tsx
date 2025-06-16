@@ -10,9 +10,8 @@ import { PlusCircle, Search, List, LayoutGrid } from "lucide-react"
 import { LeadCard } from "@/components/leads/lead-card"
 import type { Lead } from "@/lib/types"
 import { useAuth } from "@/lib/auth-context"
-import { getLeads, deleteLeadById } from "@/lib/actions"
+import { getLeads } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
-import Swal from "sweetalert2"
 
 export default function LeadsPage() {
   const { toast } = useToast()
@@ -44,59 +43,31 @@ export default function LeadsPage() {
         console.error("Failed to fetch leads:", error)
         
         // Handle 401 specifically
-        if (error.message?.includes('401') || error.message?.includes('Authentication'))
-        toast({
-          title: "Error",
-          description: error.message || "Failed to fetch leads",
-          variant: "destructive",
-        })
+        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
+          toast({
+            title: "Authentication Error",
+            description: "Your session has expired. Please login again.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to fetch leads",
+            variant: "destructive",
+          })
+        }
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchLeads()
-  }, [toast])
+  }, [toast, authLoading, getAuthHeaders])
 
-  const handleDeleteLead = async (id: string) => {
-    const result = await Swal.fire({
-      title: "Are you sure you want to delete this lead?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel"
-    })
-
-    if (result.isConfirmed) {
-      try {
-        const success = await deleteLeadById(id)
-        if (success) {
-          setLeads(leads.filter((lead) => lead.id !== id))
-          toast({
-            title: "Success",
-            description: "Lead deleted successfully",
-            variant: "default",
-          })
-          Swal.fire("Deleted!", "Lead has been deleted.", "success")
-        }
-      } catch (error: any) {
-        console.error("Failed to delete lead:", error)
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete lead",
-          variant: "destructive",
-        })
-      }
-    }
-  }
-
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredLeads = leads.filter((lead) =>
+    (lead.full_name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+    (lead.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+    (lead.role?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -168,7 +139,7 @@ export default function LeadsPage() {
       ) : filteredLeads.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onDelete={() => handleDeleteLead(lead.id)} />
+            <LeadCard key={lead.id} lead={lead} />
           ))}
         </div>
       ) : (

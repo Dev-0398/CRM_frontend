@@ -19,14 +19,11 @@ export async function getLeads(token?: string, tokenType?: string): Promise<Lead
   try {
     validateAuth(token, tokenType);
     const apiService = new ApiService(token!, tokenType!);
-    const response = await apiService.get("/leads/");
+    const response = await apiService.get("/leads/my-leads/20");
     if (response?.data && Array.isArray(response.data)) {
-      leads = response.data.map((lead: any) => ({
-        ...lead,
-        descri: lead.descr || "",
-      }));
+      return response.data;
     }
-    return leads;
+    return [];
   } catch (error) {
     console.error("Error in getLeads:", error);
     throw error; // Re-throw to handle in component
@@ -60,19 +57,23 @@ export async function createLead(
 ): Promise<Lead> {
   validateAuth(token, tokenType);
   const apiService = new ApiService(token!, tokenType!);
-  const payload: Omit<Lead, "id"> = {
-    ...leadData,
-    lead_owner: leadData.lead_owner || "Unassigned",
-    lead_status: leadData.lead_status || "New",
-    lead_source: leadData.lead_source || "",
-    street: leadData.street || "",
-    city: leadData.city || "",
-    state: leadData.state || "",
-    zipcode: leadData.zipcode || "",
-    country: leadData.country || "",
-    descri: leadData.descri || "",
+  const payload = {
+    lead_owner_id: leadData.lead_owner_id,
+    first_name: leadData.first_name,
+    last_name: leadData.last_name,
+    title: leadData.title,
+    email: leadData.email,
+    mobile: leadData.mobile,
+    lead_source: leadData.lead_source,
+    lead_status: leadData.lead_status,
+    street: leadData.street,
+    city: leadData.city,
+    state: leadData.state,
+    zipcode: leadData.zipcode,
+    country: leadData.country,
+    descr: leadData.descri,
   };
-  console.log("Creating lead with payload:", payload);
+  console.log('Creating lead with payload:', payload);
   const newLeadDB = await apiService.post("/leads/new", payload);
   if (newLeadDB?.id) {
     leads.push(newLeadDB);

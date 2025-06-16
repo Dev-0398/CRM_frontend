@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,9 +17,10 @@ import type { Lead } from "@/lib/types"
 import { createLead, updateLead } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useAuth } from "@/lib/auth-context"
 
 const initialLeadState: Omit<Lead, "id"> = {
-  lead_owner: "",
+  lead_owner_id: undefined,
   first_name: "",
   last_name: "",
   title: "",
@@ -58,12 +59,41 @@ const leadStatuses = [
 export function LeadForm({ lead }: { lead?: Lead }) {
   const router = useRouter()
   const { toast } = useToast()
-  const [formData, setFormData] = useState<Omit<Lead, "id">>(lead ? { ...lead } : initialLeadState)
+  const { getAuthHeaders, user } = useAuth()
+  const [formData, setFormData] = useState<Omit<Lead, "id">>(lead ? { ...lead } : { ...initialLeadState, lead_owner_id: user?.id })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step, setStep] = useState(1)
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
   const [formComplete, setFormComplete] = useState(false)
+  const [leadOwners, setLeadOwners] = useState<{id: number, name: string, role: string}[]>([])
+
+  useEffect(() => {
+    async function fetchLeadOwners() {
+      try {
+        const authHeaders = getAuthHeaders();
+        const res = await fetch("http://127.0.0.1:8000/users/my-users/20", {
+          headers: {
+            "Authorization": `${authHeaders?.tokenType || "Bearer"} ${authHeaders?.token || ""}`,
+            "Content-Type": "application/json"
+          }
+        });
+        const data = await res.json();
+        console.log('[LeadForm] Lead owners API response:', data);
+        if (data?.data) {
+          const owners = data.data.map((user: any) => ({ id: user.id, name: user.full_name, role: user.role }));
+          setLeadOwners(owners);
+          setFormData(prev => ({
+            ...prev,
+            lead_owner_id: prev.lead_owner_id ?? user?.id
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch lead owners", err);
+      }
+    }
+    fetchLeadOwners();
+  }, [getAuthHeaders, user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -84,20 +114,33 @@ export function LeadForm({ lead }: { lead?: Lead }) {
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    setTouchedFields((prev) => ({ ...prev, [name]: true }))
-
-    // Clear error when field is edited
+    if (name === "lead_owner") {
+      const selected = leadOwners.find(o => o.id.toString() === value);
+      setFormData((prev) => ({
+        ...prev,
+        lead_owner_id: selected?.id || 0,
+      }));
+      setTouchedFields((prev) => ({ ...prev, [name]: true }));
+      if (errors[name]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+      checkFormCompletion();
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setTouchedFields((prev) => ({ ...prev, [name]: true }));
     if (errors[name]) {
       setErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
-
-    // Check if form is complete
-    checkFormCompletion()
+    checkFormCompletion();
   }
 
   const checkFormCompletion = () => {
@@ -175,7 +218,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    e.stopPropagation() // Prevent event bubbling
+    e.stopPropagation() 
 
     if (!validateStep(step)) {
       return
@@ -184,9 +227,12 @@ export function LeadForm({ lead }: { lead?: Lead }) {
     setIsSubmitting(true)
 
     try {
+      const authHeaders = getAuthHeaders();
+      console.log('[LeadForm] Auth headers:', authHeaders);
+      console.log('[LeadForm] Data to send:', formData);
       if (lead) {
         // Update existing lead
-        const response = await updateLead(lead.id, formData)
+        const response = await updateLead(lead.id, formData, authHeaders?.token, authHeaders?.tokenType)
         toast({
           title: "Success",
           description: response?.msg || "Lead updated successfully",
@@ -195,7 +241,7 @@ export function LeadForm({ lead }: { lead?: Lead }) {
         router.push("/leads")
       } else {
         // Create new lead
-        const response = await createLead(formData)
+        const response = await createLead(formData, authHeaders?.token, authHeaders?.tokenType)
         toast({
           title: "Success",
           description: response?.msg || "Lead created successfully",
@@ -370,13 +416,46 @@ export function LeadForm({ lead }: { lead?: Lead }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="lead_owner">Lead Owner</Label>
-                  <Input
-                    id="lead_owner"
-                    name="lead_owner"
-                    value={formData.lead_owner}
-                    onChange={handleChange}
-                    placeholder="Who is responsible for this lead"
-                  />
+                  <Select
+                    value={formData.lead_owner_id ? formData.lead_owner_id.toString() : ""}
+                    onValueChange={(value) => {
+                      const selected = leadOwners.find(o => o.id.toString() === value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        lead_owner_id: selected ? selected.id : undefined,
+                      }));
+                      setTouchedFields((prev) => ({ ...prev, lead_owner: true }));
+                      if (errors.lead_owner) {
+                        setErrors((prev) => {
+                          const newErrors = { ...prev };
+                          delete newErrors.lead_owner;
+                          return newErrors;
+                        });
+                      }
+                      checkFormCompletion();
+                    }}
+                  >
+                    <SelectTrigger id="lead_owner">
+                      <div className="flex flex-col w-full">
+                        <span>
+                          {leadOwners.find(o => o.id === formData.lead_owner_id)?.name || "Select lead owner"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {leadOwners.find(o => o.id === formData.lead_owner_id)?.role || ""}
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {leadOwners.map((owner) => (
+                        <SelectItem key={owner.id} value={owner.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{owner.name}</span>
+                            <span className="text-xs text-muted-foreground">{owner.role}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
