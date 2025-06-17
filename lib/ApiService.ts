@@ -24,9 +24,10 @@ export default class ApiService {
    * @returns An object containing Content-Type and Authorization headers.
    */
   private headers(): Record<string, string> {
+
     return {
       "Content-Type": "application/json",
-      "Authorization": `${this.tokenType} ${this.token}`,
+      "Authorization": `Bearer ${this.token}`,
     };
   }
 
@@ -39,9 +40,11 @@ export default class ApiService {
   async get(endpoint: string) {
     try {
       console.log(`[ApiService][GET] ${BASE_URL}${endpoint}`);
+      const headers = this.headers();
+      console.log("headers",headers);
       const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: "GET",
-        headers: this.headers(),
+        headers: headers,
       });
 
       if (!response.ok) {

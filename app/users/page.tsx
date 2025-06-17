@@ -111,12 +111,20 @@ export default function UsersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
           <p className="text-muted-foreground mt-1">Manage system users and permissions</p>
         </div>
-        <Link href="/users/create" className="mt-4 md:mt-0">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create User
-          </Button>
-        </Link>
+        <div className="flex flex-row gap-2 mt-4 md:mt-0">
+          <Link href="/users/org-chart">
+            <Button variant="outline">
+              <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              View Org Chart
+            </Button>
+          </Link>
+          <Link href="/users/create">
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create User
+            </Button>
+          </Link>
+        </div>
       </div>
       {/* user header end */}
       {/* search box start */}

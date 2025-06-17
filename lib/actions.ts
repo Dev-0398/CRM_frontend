@@ -17,16 +17,27 @@ function validateAuth(token?: string, tokenType?: string) {
 // Get all leads
 export async function getLeads(token?: string, tokenType?: string): Promise<Lead[]> {
   try {
-    validateAuth(token, tokenType);
+    console.log("token",token,tokenType);
+    // validateAuth(token, tokenType);
     const apiService = new ApiService(token!, tokenType!);
-    const response = await apiService.get("/leads/my-leads/20");
+    const response = await apiService.get("/leads/my-leads/");
     if (response?.data && Array.isArray(response.data)) {
       return response.data;
     }
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in getLeads:", error);
-    throw error; // Re-throw to handle in component
+    
+    // Provide more specific error messages
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    } else if (error.message?.includes('403')) {
+      throw new Error('Access denied. You do not have permission to view leads.');
+    } else if (error.message?.includes('Network')) {
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch leads');
   }
 }
 
@@ -43,9 +54,16 @@ export async function getLeadById(id: string, token?: string, tokenType?: string
       };
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching lead:", error);
-    throw error;
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    } else if (error.message?.includes('404')) {
+      throw new Error('Lead not found.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch lead');
   }
 }
 
@@ -55,30 +73,40 @@ export async function createLead(
   token?: string,
   tokenType?: string
 ): Promise<Lead> {
-  validateAuth(token, tokenType);
-  const apiService = new ApiService(token!, tokenType!);
-  const payload = {
-    lead_owner_id: leadData.lead_owner_id,
-    first_name: leadData.first_name,
-    last_name: leadData.last_name,
-    title: leadData.title,
-    email: leadData.email,
-    mobile: leadData.mobile,
-    lead_source: leadData.lead_source,
-    lead_status: leadData.lead_status,
-    street: leadData.street,
-    city: leadData.city,
-    state: leadData.state,
-    zipcode: leadData.zipcode,
-    country: leadData.country,
-    descr: leadData.descri,
-  };
-  console.log('Creating lead with payload:', payload);
-  const newLeadDB = await apiService.post("/leads/new", payload);
-  if (newLeadDB?.id) {
-    leads.push(newLeadDB);
+  try {
+    validateAuth(token, tokenType);
+    const apiService = new ApiService(token!, tokenType!);
+    const payload = {
+      lead_owner_id: leadData.lead_owner_id,
+      first_name: leadData.first_name,
+      last_name: leadData.last_name,
+      title: leadData.title,
+      email: leadData.email,
+      mobile: leadData.mobile,
+      lead_source: leadData.lead_source,
+      lead_status: leadData.lead_status,
+      street: leadData.street,
+      city: leadData.city,
+      state: leadData.state,
+      zipcode: leadData.zipcode,
+      country: leadData.country,
+      descr: leadData.descri,
+    };
+    console.log('Creating lead with payload:', payload);
+    const newLeadDB = await apiService.post("/leads/new", payload);
+    if (newLeadDB?.id) {
+      leads.push(newLeadDB);
+    }
+    return newLeadDB;
+  } catch (error: any) {
+    console.error("Error creating lead:", error);
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to create lead');
   }
-  return newLeadDB;
 }
 
 // Update a lead
@@ -95,6 +123,11 @@ export async function updateLead(
     return { msg: response.msg || "Lead updated successfully" };
   } catch (error: any) {
     console.error("Error updating lead:", error);
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
     throw new Error(error.message || "Failed to update lead");
   }
 }
@@ -105,13 +138,23 @@ export async function deleteLeadById(
   token?: string,
   tokenType?: string
 ): Promise<boolean> {
-  validateAuth(token, tokenType);
-  const apiService = new ApiService(token!, tokenType!);
-  await apiService.delete(`/leads/${id}`);
-  const leadIndex = leads.findIndex((lead) => String(lead.id) === String(id));
-  if (leadIndex === -1) return false;
-  leads.splice(leadIndex, 1);
-  return true;
+  try {
+    validateAuth(token, tokenType);
+    const apiService = new ApiService(token!, tokenType!);
+    await apiService.delete(`/leads/${id}`);
+    const leadIndex = leads.findIndex((lead) => String(lead.id) === String(id));
+    if (leadIndex === -1) return false;
+    leads.splice(leadIndex, 1);
+    return true;
+  } catch (error: any) {
+    console.error("Error deleting lead:", error);
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to delete lead');
+  }
 }
 
 // Get all users
@@ -124,9 +167,14 @@ export async function getUsers(token?: string, tokenType?: string): Promise<User
       return response.data;
     }
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in getUsers:", error);
-    throw error;
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch users');
   }
 }
 
@@ -141,9 +189,14 @@ export async function getUserById(
     const apiService = new ApiService(token!, tokenType!);
     const response = await apiService.get(`/users/${id}`);
     return response?.data || null;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in getUserById:", error);
-    throw error;
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch user');
   }
 }
 
@@ -158,9 +211,14 @@ export async function createUser(
     const apiService = new ApiService(token!, tokenType!);
     const response = await apiService.post("/users/new", userData);
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in createUser:", error);
-    throw error;
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to create user');
   }
 }
 
@@ -196,5 +254,51 @@ export async function deleteUserById(
   } catch (error) {
     console.error("Error in deleteUserById:", error);
     throw error;
+  }
+}
+
+
+// Get role tree
+export async function getRoleTree(token?: string, tokenType?: string): Promise<any> {
+  try {
+    validateAuth(token, tokenType);
+    const apiService = new ApiService(token!, tokenType!);
+    const response = await apiService.get("/user-roles/tree");
+    
+    if (response?.status === "success" && response?.data) {
+      return response.data;
+    }
+    return [];
+  } catch (error: any) {
+    console.error("Error in getRoleTree:", error);
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch role tree');
+  }
+}
+
+// Get users tree (if you have a similar endpoint for users)
+export async function getUsersTree(token?: string, tokenType?: string): Promise<any> {
+  try {
+    validateAuth(token, tokenType);
+    const apiService = new ApiService(token!, tokenType!);
+    // Assuming you might have a users tree endpoint
+    const response = await apiService.get("/users/tree");
+    
+    if (response?.status === "success" && response?.data) {
+      return response.data;
+    }
+    return [];
+  } catch (error: any) {
+    console.error("Error in getUsersTree:", error);
+    
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      throw new Error('Authentication failed. Please login again.');
+    }
+    
+    throw new Error(error.message || 'Failed to fetch users tree');
   }
 }

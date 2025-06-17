@@ -29,7 +29,7 @@ export default function LeadsPage() {
       if (!authHeaders) {
         toast({
           title: "Authentication Error",
-          description: "Please login to access leads",
+          description: "Please login to access leads",  
           variant: "destructive",
         })
         setIsLoading(false)
@@ -37,7 +37,9 @@ export default function LeadsPage() {
       }
 
       try {
-        const fetchedLeads = await getLeads(authHeaders.token, authHeaders.tokenType)
+        console.log("user from lads",user?.token, user?.tokenType);
+        
+        const fetchedLeads = await getLeads(user?.token, user?.tokenType)
         setLeads(fetchedLeads)
       } catch (error: any) {
         console.error("Failed to fetch leads:", error)

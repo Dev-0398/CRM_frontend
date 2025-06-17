@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, use } from 'react'
 import { User, LoginSession } from './types'
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   isLoading: boolean
   setUser: (user: Omit<User, "password"> | null) => void
   getAuthHeaders: () => { token: string; tokenType: string } | null
+  isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -21,19 +22,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentSession, setCurrentSession] = useState<LoginSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Get auth headers helper function
+  // Computed property for authentication status
+  const isAuthenticated = Boolean(user?.token && user?.tokenType)
+
+  // Get auth headers helper function - simplified
   const getAuthHeaders = () => {
-    if (user?.token && user?.tokenType) {
+    if (typeof user?.token === 'string' && typeof user?.tokenType === 'string' && user.token && user.tokenType) {
       return {
         token: user.token,
-        tokenType: user.tokenType.charAt(0).toUpperCase() + user.tokenType.slice(1).toLowerCase() === 'Bearer' ? 'Bearer' : 'Bearer'
+        tokenType: user.tokenType,
       }
     }
     return null
   }
-
   // Initialize auth state
-  useEffect(() => {
+  useEffect(() => { 
     const initializeAuth = async () => {
       try {
         // Check if we have stored user data
@@ -42,8 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (storedUser) {
           const userData = JSON.parse(storedUser)
-          console.log('Loaded user from localStorage:', userData)
-          setUser(userData)
+          // console.log('Loaded user from localStorage:', userData)
+          
+          // Validate that we have required auth data
+          if (userData.token && userData.tokenType) {
+            setUser(userData)
+          } else {
+            console.warn('Stored user data missing auth tokens, clearing storage')
+            localStorage.removeItem('user')
+            localStorage.removeItem('currentSession')
+          }
         }
         
         if (storedSession) {
@@ -52,8 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
+        // Clear corrupted data
+        localStorage.removeItem('user')
+        localStorage.removeItem('currentSession')
       } finally {
         setIsLoading(false)
+        console.log("im here to help",user);
       }
     }
 
@@ -73,15 +88,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
+        
+        // Ensure we have the required auth tokens
+        if (!data?.access_token) {
+          console.error('Login response missing access token')
+          return false
+        }
+
         const userData: Omit<User, "password"> = {
           id: data.user?.id || 1,
-          name: data.user?.full_name || 'User',
+          full_name: data.user?.full_name || data.user?.name || 'User',
+          name: data.user?.name || data.user?.full_name || 'User',
           email: data.user?.email || email,
           role: data.user?.role || 'User',
-          is_active: data.user?.is_active || true,
+          is_active: data.user?.is_active ?? true,
           created_at: data.user?.created_at || new Date().toISOString(),
-          token: data?.access_token,
-          tokenType: data?.token_type || 'Bearer'
+          token: data.access_token,
+          tokenType: data.token_type || 'Bearer',
+          reporting_to: data.user?.reporting_to || '',
         }
 
         const sessionData: LoginSession = {
@@ -99,8 +123,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(userData))
         localStorage.setItem('currentSession', JSON.stringify(sessionData))
         return true
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Login failed:', errorData)
+        return false
       }
-      return false
     } catch (error) {
       console.error('Login error:', error)
       return false
@@ -163,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       setUser,
       getAuthHeaders,
+      isAuthenticated,
     }}>
       {children}
     </AuthContext.Provider>
