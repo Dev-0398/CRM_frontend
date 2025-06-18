@@ -18,6 +18,7 @@ import type { User } from "@/lib/types"
 import { createUser, updateUser, getUsers } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
+import config from "../../config"
 
 const initialUserState: Omit<User, "id" | "created_at"> = {
   full_name: "",
@@ -27,12 +28,6 @@ const initialUserState: Omit<User, "id" | "created_at"> = {
   is_active: true,
   reporting_to: "",
 }
-
-const roleOptions = [
-  { value: "Admin", label: "Admin", description: "Full access to all features" },
-  { value: "Manager", label: "Manager", description: "Can manage leads and users" },
-  { value: "User", label: "User", description: "Basic access to leads only" },
-]
 
 interface FormData extends Omit<User, "id" | "created_at" | "token" | "tokenType"> {
   full_name: string;
@@ -69,6 +64,7 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
     { value: string; label: string; role: string;}[]
   >([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string; description?: string }[]>([]);
 
   useEffect(() => {
     if (authLoading) return; // Wait for auth to load
@@ -106,12 +102,41 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
       fetchUsers();
     }
   }, [formData.role, authLoading]);
+
   useEffect(() => {
     // Check if form is complete on initial load (for edit mode)
     if (user) {
       checkFormCompletion()
     }
   }, [user])
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const authHeaders = getAuthHeaders && getAuthHeaders();
+        const res = await fetch(`${config.API_BASE_URL}/user-roles/`, {
+          headers: authHeaders ? { Authorization: `${authHeaders.tokenType} ${authHeaders.token}` } : {},
+        });
+        const data = await res.json();
+        if (data.status === "success" && Array.isArray(data.data)) {
+          const options = data.data.map((role: any) => ({
+            value: role.role,
+            label: role.role,
+            description: role.text,
+          }));
+          setRoleOptions(options);
+          // Set the first role as default if not already set
+          setFormData((prev) => ({
+            ...prev,
+            role: prev.role || (options.length > 0 ? options[0].value : ""),
+          }));
+        }
+      } catch (err) {
+        setRoleOptions([]);
+      }
+    };
+    fetchRoles();
+  }, [getAuthHeaders]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -174,11 +199,6 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
   const checkFormCompletion = () => {
     const requiredFields = ["full_name", "email", "role"]
     
-    // Add reporting_to as required field if role is not Admin
-    if (formData.role !== "Admin") {
-      requiredFields.push("reporting_to")
-    }
-    
     const isComplete = requiredFields.every((field) => formData[field as keyof typeof formData] && !errors[field])
     setFormComplete(isComplete)
   }
@@ -198,11 +218,6 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
 
     if (!formData.role) {
       newErrors.role = "Role is required"
-    }
-
-    // Reporting to is required for non-Admin roles
-    if (formData.role !== "Admin" && !formData.reporting_to?.trim()) {
-      newErrors.reporting_to = "Reporting to is required for this role"
     }
 
     // Only require password for new user creation
@@ -231,12 +246,15 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
     }
 
     try {
+      // Prepare payload for backend (Pydantic model)
       const userData = {
-        ...formData,
         full_name: formData.full_name,
         name: formData.full_name,
-        reporting_to: formData.role === "Admin" ? "0" : String(formData.reporting_to),
+        email: formData.email,
+        role: formData.role,
+        is_active: formData.is_active,
         password: formData.password || undefined,
+        reporting_to: formData.reporting_to ? formData.reporting_to : "",
       };
       console.log("Creating user with data:", userData);
 
@@ -417,7 +435,9 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
                       <SelectItem key={role.value} value={role.value}>
                         <div className="flex flex-col">
                           <span>{role.label}</span>
-                          <span className="text-xs text-muted-foreground">{role.description}</span>
+                          {role.description && (
+                            <span className="text-xs text-muted-foreground">{role.description}</span>
+                          )}
                         </div>
                       </SelectItem>
                     ))}
@@ -437,14 +457,14 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="reporting_to" className="flex items-center">
                   <Users className="h-4 w-4 mr-2" />
-                  Reporting To <span className="text-red-500 ml-1">*</span>
+                  Reporting To
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="h-4 w-4 ml-1 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="w-60">Select the person this user reports to</p>
+                        <p className="w-60">Select the person this user reports to (optional)</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -481,12 +501,6 @@ export default function UserForm({ user, onSuccess }: UserFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.reporting_to && (
-                  <div className="flex items-center text-red-500 text-sm mt-1">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    <span>{errors.reporting_to}</span>
-                  </div>
-                )}
               </div>
             )}
 

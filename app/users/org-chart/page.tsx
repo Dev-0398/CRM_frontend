@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getRoleTree, getUsersTree } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
+import config from "../../../config";
 
 interface TreeNode {
   id: number;
@@ -17,32 +18,20 @@ interface TreeNode {
   color?: string;
 }
 
-// Helper function to transform API data and add colors
-function transformTreeData(data: any[], isRoleTree: boolean = true): TreeNode[] {
-  const colorMap: { [key: string]: string } = {
-    admin: "bg-blue-100 border-blue-200",
-    administrator: "bg-blue-100 border-blue-200",
-    manager: "bg-yellow-100 border-yellow-200", 
-    operator: "bg-green-100 border-green-200",
-    staff: "bg-red-100 border-red-200",
-    viewer: "bg-purple-100 border-purple-200",
-  };
+// Pastel color palette for levels
+const pastelPalette = [
+  'hsl(160, 70%, 85%)', // Level 0
+  'hsl(250, 70%, 85%)', // Level 1
+  'hsl(40, 70%, 85%)',  // Level 2
+  'hsl(10, 70%, 85%)',  // Level 3
+  'hsl(320, 70%, 85%)', // Level 4
+  'hsl(200, 70%, 85%)', // Level 5
+];
 
-  const getColor = (role: string, level: number) => {
-    const roleKey = role?.toLowerCase() || '';
-    if (colorMap[roleKey]) {
-      return colorMap[roleKey];
-    }
-    // Fallback colors based on level
-    const levelColors = [
-      "bg-blue-100 border-blue-200", 
-      "bg-yellow-100 border-yellow-200", 
-      "bg-green-100 border-green-200", 
-      "bg-red-100 border-red-200", 
-      "bg-purple-100 border-purple-200"
-    ];
-    return levelColors[level % levelColors.length];
-  };
+function transformTreeData(data: any[], isRoleTree: boolean = true): TreeNode[] {
+  function getColorByLevel(level: number) {
+    return pastelPalette[level % pastelPalette.length];
+  }
 
   function processNode(node: any, level: number = 0): TreeNode {
     return {
@@ -50,9 +39,9 @@ function transformTreeData(data: any[], isRoleTree: boolean = true): TreeNode[] 
       role: node.role,
       text: node.text,
       name: node.name,
-      label: isRoleTree ? node.text : node.name,
+      label: isRoleTree ? node.role : node.name,
       parent_role_id: node.parent_role_id,
-      color: getColor(node.role || 'default', level),
+      color: getColorByLevel(level),
       children: node.children ? node.children.map((child: any) => processNode(child, level + 1)) : []
     };
   }
@@ -64,11 +53,20 @@ function OrgNode({ node }: { node: TreeNode }) {
   const hasChildren = node.children && node.children.length > 0;
   const multipleChildren = node.children && node.children.length > 1;
 
+  // Use the color directly from node.color (now always hsl)
+  const customStyle = node.color ? {
+    backgroundColor: node.color,
+    borderColor: node.color,
+  } : {};
+
   return (
     <div className="flex flex-col items-center relative">
       {/* Node */}
       <div className="flex flex-col items-center relative mb-4">
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${node.color} border-2 shadow-sm hover:shadow-md transition-all duration-200 min-w-[180px] justify-center`}>
+        <div
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg border-2 shadow-sm hover:shadow-md transition-all duration-200 min-w-[180px] justify-center`}
+          style={customStyle}
+        >
           <Avatar className="h-8 w-8 bg-white border border-gray-300">
             <AvatarFallback className="bg-white">
               <User className="h-4 w-4 text-gray-600" />
@@ -124,6 +122,11 @@ export default function OrgChartPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { getAuthHeaders, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [showCreateRole, setShowCreateRole] = useState(false);
+  const [allRoles, setAllRoles] = useState<any[]>([]);
+  const [roleForm, setRoleForm] = useState({ role: "", text: "", parent_role_id: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     const fetchTreeData = async () => {
@@ -182,6 +185,25 @@ export default function OrgChartPage() {
     fetchTreeData();
   }, [isAuthenticated, getAuthHeaders, toast]);
 
+  // Fetch all roles for parent dropdown
+  useEffect(() => {
+    const fetchAllRoles = async () => {
+      try {
+        const authHeaders = getAuthHeaders && getAuthHeaders();
+        const res = await fetch(`${config.API_BASE_URL}/user-roles/`, {
+          headers: authHeaders ? { Authorization: `${authHeaders.tokenType} ${authHeaders.token}` } : {},
+        });
+        const data = await res.json();
+        if (data.status === "success" && Array.isArray(data.data)) {
+          setAllRoles(data.data);
+        }
+      } catch (err) {
+        setAllRoles([]);
+      }
+    };
+    if (showCreateRole) fetchAllRoles();
+  }, [showCreateRole, getAuthHeaders]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-10 px-4">
@@ -197,9 +219,15 @@ export default function OrgChartPage() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Organization Chart</h1>
           <p className="text-gray-600">View the organizational structure and hierarchy</p>
+          <button
+            className="absolute right-0 top-0 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition-all"
+            onClick={() => setShowCreateRole(true)}
+          >
+            + Create Role
+          </button>
         </div>
 
         {/* Tabs */}
@@ -233,7 +261,7 @@ export default function OrgChartPage() {
           {tab === "roles" && (
             <div className="min-w-full">
               {rolesTree.length > 0 ? (
-                <div className="flex flex-col items-center space-y-8">
+                <div className="flex flex-row items-start justify-center space-x-8">
                   {rolesTree.map((rootNode) => (
                     <OrgNode key={rootNode.id} node={rootNode} />
                   ))}
@@ -274,6 +302,98 @@ export default function OrgChartPage() {
             </div>
           )}
         </div>
+
+        {/* Modal for Create Role */}
+        {showCreateRole && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowCreateRole(false)}
+              >
+                ×
+              </button>
+              <h2 className="text-xl font-bold mb-4">Create New Role</h2>
+              <form
+                ref={formRef}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setIsSubmitting(true);
+                  try {
+                    const authHeaders = getAuthHeaders && getAuthHeaders();
+                    const payload = {
+                      role: roleForm.role,
+                      text: roleForm.text,
+                      parent_role_id: roleForm.parent_role_id ? Number(roleForm.parent_role_id) : 0,
+                    };
+                    const res = await fetch(`${config.API_BASE_URL}/user-roles/new`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        ...(authHeaders ? { Authorization: `${authHeaders.tokenType} ${authHeaders.token}` } : {}),
+                      },
+                      body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+                    if (data.status === "success") {
+                      setShowCreateRole(false);
+                      setRoleForm({ role: "", text: "", parent_role_id: "" });
+                      // Refresh org chart
+                      if (typeof window !== "undefined") window.location.reload();
+                    } else {
+                      toast({ title: "Error", description: data.message || "Failed to create role", variant: "destructive" });
+                    }
+                  } catch (err) {
+                    toast({ title: "Error", description: "Failed to create role", variant: "destructive" });
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">Role Name</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={roleForm.role}
+                    onChange={e => setRoleForm(f => ({ ...f, role: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={roleForm.text}
+                    onChange={e => setRoleForm(f => ({ ...f, text: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Parent Role (optional)</label>
+                  <select
+                    className="w-full border rounded px-3 py-2"
+                    value={roleForm.parent_role_id}
+                    onChange={e => setRoleForm(f => ({ ...f, parent_role_id: e.target.value }))}
+                  >
+                    <option value="">None</option>
+                    {allRoles.map(r => (
+                      <option key={r.id} value={r.id}>{r.role}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-all"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Saving..." : "Save Role"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
